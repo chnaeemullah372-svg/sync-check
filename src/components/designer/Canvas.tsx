@@ -1,0 +1,357 @@
+import { useEffect, useRef, useState } from "react";
+import { Stage, Layer as KLayer, Rect, Text, Image as KImage, Transformer, Group, Line } from "react-konva";
+import type Konva from "konva";
+import { useDesigner } from "@/lib/designer/store";
+import type { ImageLayer, Layer, TextLayer, BoxLayer, LineLayer } from "@/lib/designer/types";
+
+function useHTMLImage(src: string | null) {
+  const [img, setImg] = useState<HTMLImageElement | null>(null);
+  useEffect(() => {
+    if (!src) { setImg(null); return; }
+    const i = new window.Image();
+    i.crossOrigin = "anonymous";
+    i.src = src;
+    i.onload = () => setImg(i);
+  }, [src]);
+  return img;
+}
+
+function fitRect(iw: number, ih: number, bw: number, bh: number, mode: ImageLayer["fit"]) {
+  if (mode === "stretch") return { x: 0, y: 0, w: bw, h: bh };
+  const ir = iw / ih;
+  const br = bw / bh;
+  if (mode === "fit") {
+    if (ir > br) { const h = bw / ir; return { x: 0, y: (bh - h) / 2, w: bw, h }; }
+    const w = bh * ir; return { x: (bw - w) / 2, y: 0, w, h: bh };
+  }
+  if (ir > br) { const w = bh * ir; return { x: (bw - w) / 2, y: 0, w, h: bh }; }
+  const h = bw / ir; return { x: 0, y: (bh - h) / 2, w: bw, h };
+}
+
+interface NodeProps<T extends Layer> {
+  layer: T;
+  isSelected: boolean;
+  onSelect: (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => void;
+  onChange: (p: Partial<T>) => void;
+  onDragEnd: (newX: number, newY: number) => void;
+  nodeRef: (n: Konva.Node | null) => void;
+}
+
+function ImageNode({ layer, isSelected, onSelect, onChange, onDragEnd, nodeRef }: NodeProps<ImageLayer>) {
+  const img = useHTMLImage(layer.src);
+  const groupRef = useRef<Konva.Group>(null);
+  useEffect(() => { nodeRef(groupRef.current); return () => nodeRef(null); }, [nodeRef]);
+  const fitted = img ? fitRect(img.width, img.height, layer.width, layer.height, layer.fit) : null;
+  return (
+    <Group
+      ref={groupRef}
+      x={layer.x} y={layer.y} width={layer.width} height={layer.height}
+      rotation={layer.rotation} opacity={layer.opacity} visible={layer.visible}
+      draggable={!layer.locked} onClick={onSelect} onTap={onSelect}
+      onDragEnd={(e) => onDragEnd(e.target.x(), e.target.y())}
+      onTransformEnd={() => {
+        const node = groupRef.current; if (!node) return;
+        const sx = node.scaleX(), sy = node.scaleY();
+        node.scaleX(1); node.scaleY(1);
+        onChange({ x: node.x(), y: node.y(),
+          width: Math.max(10, layer.width * sx), height: Math.max(10, layer.height * sy),
+          rotation: node.rotation() });
+      }}
+      clipFunc={(ctx) => { ctx.rect(0, 0, layer.width, layer.height); }}
+    >
+      <Rect width={layer.width} height={layer.height}
+        fill={img ? "transparent" : "#f1f5f9"}
+        stroke={img ? undefined : isSelected ? "#3b82f6" : "#cbd5e1"}
+        strokeWidth={1} dash={img ? undefined : [6, 4]} />
+      {img && fitted && (<KImage image={img} x={fitted.x} y={fitted.y} width={fitted.w} height={fitted.h} />)}
+      {!img && (<Text text="IMAGE BOX" width={layer.width} height={layer.height} align="center" verticalAlign="middle" fontSize={14} fill="#64748b" listening={false} />)}
+    </Group>
+  );
+}
+
+function TextNode({ layer, onSelect, onChange, onDragEnd, nodeRef }: NodeProps<TextLayer>) {
+  const ref = useRef<Konva.Text>(null);
+  useEffect(() => { nodeRef(ref.current); return () => nodeRef(null); }, [nodeRef]);
+  return (
+    <Text
+      ref={ref}
+      text={layer.text} x={layer.x} y={layer.y} width={layer.width} height={layer.height}
+      fontSize={layer.fontSize} fontFamily={layer.fontFamily} fontStyle={layer.fontStyle}
+      fill={layer.fill} align={layer.align} rotation={layer.rotation}
+      opacity={layer.opacity} visible={layer.visible} draggable={!layer.locked}
+      onClick={onSelect} onTap={onSelect}
+      onDragEnd={(e) => onDragEnd(e.target.x(), e.target.y())}
+      onTransformEnd={() => {
+        const node = ref.current; if (!node) return;
+        const sx = node.scaleX(), sy = node.scaleY();
+        const avg = (sx + sy) / 2;
+        node.scaleX(1); node.scaleY(1);
+        onChange({ x: node.x(), y: node.y(),
+          width: Math.max(20, layer.width * sx), height: Math.max(10, layer.height * sy),
+          fontSize: Math.max(6, layer.fontSize * avg), rotation: node.rotation() });
+      }}
+    />
+  );
+}
+
+function BoxNode({ layer, onSelect, onChange, onDragEnd, nodeRef }: NodeProps<BoxLayer>) {
+  const ref = useRef<Konva.Rect>(null);
+  useEffect(() => { nodeRef(ref.current); return () => nodeRef(null); }, [nodeRef]);
+  return (
+    <Rect ref={ref} x={layer.x} y={layer.y} width={layer.width} height={layer.height}
+      fill={layer.fill} stroke={layer.stroke} strokeWidth={layer.strokeWidth}
+      rotation={layer.rotation} opacity={layer.opacity} visible={layer.visible}
+      draggable={!layer.locked} onClick={onSelect} onTap={onSelect}
+      onDragEnd={(e) => onDragEnd(e.target.x(), e.target.y())}
+      onTransformEnd={() => {
+        const node = ref.current; if (!node) return;
+        const sx = node.scaleX(), sy = node.scaleY();
+        node.scaleX(1); node.scaleY(1);
+        onChange({ x: node.x(), y: node.y(),
+          width: Math.max(5, layer.width * sx), height: Math.max(5, layer.height * sy),
+          rotation: node.rotation() });
+      }}
+    />
+  );
+}
+
+function LineNode({ layer, onSelect, onChange, onDragEnd, nodeRef }: NodeProps<LineLayer>) {
+  const ref = useRef<Konva.Line>(null);
+  useEffect(() => { nodeRef(ref.current); return () => nodeRef(null); }, [nodeRef]);
+  return (
+    <Line ref={ref} x={layer.x} y={layer.y} points={[0, 0, layer.width, 0]}
+      stroke={layer.stroke} strokeWidth={layer.strokeWidth}
+      rotation={layer.rotation} opacity={layer.opacity} visible={layer.visible}
+      draggable={!layer.locked} onClick={onSelect} onTap={onSelect}
+      onDragEnd={(e) => onDragEnd(e.target.x(), e.target.y())}
+      onTransformEnd={() => {
+        const node = ref.current; if (!node) return;
+        const sx = node.scaleX(); node.scaleX(1); node.scaleY(1);
+        onChange({ x: node.x(), y: node.y(),
+          width: Math.max(5, layer.width * sx), rotation: node.rotation() });
+      }}
+      hitStrokeWidth={Math.max(layer.strokeWidth, 8)}
+    />
+  );
+}
+
+export function DesignerCanvas({ stageRef }: { stageRef: React.MutableRefObject<Konva.Stage | null> }) {
+  const {
+    background, canvasWidth, canvasHeight, layers,
+    selectedId, selectedIds, selectLayer, selectIds, updateLayer, translateSlot, userZoom, setUserZoom,
+  } = useDesigner();
+  const bgImg = useHTMLImage(background.src);
+  const transformerRef = useRef<Konva.Transformer>(null);
+  const nodeMap = useRef<Map<string, Konva.Node>>(new Map());
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [fitScale, setFitScale] = useState(1);
+  const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const marqueeStart = useRef<{ x: number; y: number } | null>(null);
+  const scale = fitScale * userZoom;
+
+  // ---- Pinch-to-zoom only the canvas page (not the whole UI) ----
+  const pinchRef = useRef<{ dist: number; baseZoom: number } | null>(null);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const dist = (t: TouchList) => {
+      const dx = t[0].clientX - t[1].clientX;
+      const dy = t[0].clientY - t[1].clientY;
+      return Math.hypot(dx, dy);
+    };
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        pinchRef.current = { dist: dist(e.touches), baseZoom: useDesigner.getState().userZoom };
+        e.preventDefault();
+      }
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && pinchRef.current) {
+        const d = dist(e.touches);
+        const ratio = d / pinchRef.current.dist;
+        setUserZoom(pinchRef.current.baseZoom * ratio);
+        e.preventDefault();
+      }
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) pinchRef.current = null;
+    };
+    el.addEventListener("touchstart", onTouchStart, { passive: false });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd);
+    // iOS Safari gesture events — block default UI zoom
+    const blockGesture = (e: Event) => e.preventDefault();
+    el.addEventListener("gesturestart", blockGesture);
+    el.addEventListener("gesturechange", blockGesture);
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("gesturestart", blockGesture);
+      el.removeEventListener("gesturechange", blockGesture);
+    };
+  }, [setUserZoom]);
+
+  useEffect(() => {
+    const update = () => {
+      if (!containerRef.current) return;
+      const cw = containerRef.current.clientWidth - 32;
+      const ch = containerRef.current.clientHeight - 32;
+      const s = Math.min(cw / canvasWidth, ch / canvasHeight, 1);
+      setFitScale(s);
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [canvasWidth, canvasHeight]);
+
+  // Attach transformer to selected nodes (multi)
+  useEffect(() => {
+    const tr = transformerRef.current;
+    if (!tr) return;
+    if (selectedIds.length === 0) { tr.nodes([]); tr.getLayer()?.batchDraw(); return; }
+    const nodes = selectedIds.map((id) => nodeMap.current.get(id)).filter(Boolean) as Konva.Node[];
+    tr.nodes(nodes);
+    tr.getLayer()?.batchDraw();
+  }, [selectedIds, layers]);
+
+  // Keyboard nudge
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!selectedId) return;
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      const layer = layers.find((l) => l.id === selectedId);
+      if (!layer) return;
+      const step = e.shiftKey ? 10 : 1;
+      if (e.key === "ArrowUp") { updateLayer(selectedId, { y: layer.y - step }); e.preventDefault(); }
+      else if (e.key === "ArrowDown") { updateLayer(selectedId, { y: layer.y + step }); e.preventDefault(); }
+      else if (e.key === "ArrowLeft") { updateLayer(selectedId, { x: layer.x - step }); e.preventDefault(); }
+      else if (e.key === "ArrowRight") { updateLayer(selectedId, { x: layer.x + step }); e.preventDefault(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedId, layers, updateLayer]);
+
+  const setNodeRef = (id: string) => (n: Konva.Node | null) => {
+    if (n) nodeMap.current.set(id, n);
+    else nodeMap.current.delete(id);
+  };
+
+  /** Drag-end handler: if layer belongs to a slot, move the whole slot together (Photoshop auto-select group). */
+  const handleDragEnd = (layer: Layer) => (newX: number, newY: number) => {
+    const dx = newX - layer.x;
+    const dy = newY - layer.y;
+    if (layer.slotIndex && layer.slotIndex > 0) {
+      translateSlot(layer.slotIndex, dx, dy);
+    } else {
+      updateLayer(layer.id, { x: newX, y: newY });
+    }
+  };
+
+  const handleStageMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    if (e.target !== e.target.getStage()) return;
+    selectLayer(null);
+    const stage = e.target.getStage();
+    if (!stage) return;
+    const pos = stage.getPointerPosition();
+    if (!pos) return;
+    // Stage scale is already set, convert pointer to stage coords
+    const p = { x: pos.x / scale, y: pos.y / scale };
+    marqueeStart.current = p;
+    setMarquee({ x: p.x, y: p.y, w: 0, h: 0 });
+  };
+
+  const handleStageMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    if (!marqueeStart.current) return;
+    const stage = e.target.getStage();
+    if (!stage) return;
+    const pos = stage.getPointerPosition();
+    if (!pos) return;
+    const p = { x: pos.x / scale, y: pos.y / scale };
+    const s = marqueeStart.current;
+    setMarquee({
+      x: Math.min(s.x, p.x),
+      y: Math.min(s.y, p.y),
+      w: Math.abs(p.x - s.x),
+      h: Math.abs(p.y - s.y),
+    });
+  };
+
+  const handleStageMouseUp = () => {
+    if (!marquee || !marqueeStart.current) {
+      marqueeStart.current = null;
+      setMarquee(null);
+      return;
+    }
+    const m = marquee;
+    if (m.w > 5 && m.h > 5) {
+      const inside = layers.filter((l) => {
+        if (!l.visible) return false;
+        return l.x + l.width >= m.x && l.x <= m.x + m.w
+          && l.y + l.height >= m.y && l.y <= m.y + m.h;
+      }).map((l) => l.id);
+      if (inside.length > 0) selectIds(inside);
+    }
+    marqueeStart.current = null;
+    setMarquee(null);
+  };
+
+  return (
+    <div ref={containerRef} className="flex-1 overflow-auto bg-muted/30 flex items-center justify-center p-4" style={{ touchAction: "pan-x pan-y" }}>
+      <div className="bg-white shadow-2xl" style={{ width: canvasWidth * scale, height: canvasHeight * scale }}>
+        <Stage
+          ref={(s) => { stageRef.current = s; }}
+          width={canvasWidth * scale} height={canvasHeight * scale}
+          scaleX={scale} scaleY={scale}
+          onMouseDown={handleStageMouseDown}
+          onMouseMove={handleStageMouseMove}
+          onMouseUp={handleStageMouseUp}
+          onTouchStart={handleStageMouseDown as any}
+          onTouchMove={handleStageMouseMove as any}
+          onTouchEnd={handleStageMouseUp}
+        >
+          <KLayer listening={false}>
+            <Rect x={0} y={0} width={canvasWidth} height={canvasHeight} fill="#ffffff" />
+            {bgImg && (<KImage image={bgImg} x={0} y={0} width={canvasWidth} height={canvasHeight} />)}
+          </KLayer>
+          <KLayer>
+            {layers.map((layer) => {
+              const isSel = selectedIds.includes(layer.id);
+              const onSelect = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+                const native = e.evt as MouseEvent;
+                selectLayer(layer.id, native?.shiftKey || (native as any)?.ctrlKey || (native as any)?.metaKey);
+              };
+              const common = {
+                isSelected: isSel,
+                onSelect,
+                onChange: (p: Partial<Layer>) => updateLayer(layer.id, p),
+                onDragEnd: handleDragEnd(layer),
+                nodeRef: setNodeRef(layer.id),
+              };
+              if (layer.type === "text") return <TextNode key={layer.id} layer={layer} {...common} onChange={common.onChange as any} />;
+              if (layer.type === "image") return <ImageNode key={layer.id} layer={layer} {...common} onChange={common.onChange as any} />;
+              if (layer.type === "line") return <LineNode key={layer.id} layer={layer} {...common} onChange={common.onChange as any} />;
+              return <BoxNode key={layer.id} layer={layer} {...common} onChange={common.onChange as any} />;
+            })}
+            <Transformer
+              ref={transformerRef}
+              rotateEnabled keepRatio={false} shouldOverdrawWholeArea
+              boundBoxFunc={(oldBox, newBox) => {
+                if (newBox.width < 5 || newBox.height < 5) return oldBox;
+                return newBox;
+              }}
+            />
+            {marquee && (
+              <Rect
+                x={marquee.x} y={marquee.y} width={marquee.w} height={marquee.h}
+                fill="rgba(59,130,246,0.12)" stroke="#3b82f6" strokeWidth={1} dash={[4, 3]}
+                listening={false}
+              />
+            )}
+          </KLayer>
+        </Stage>
+      </div>
+    </div>
+  );
+}
