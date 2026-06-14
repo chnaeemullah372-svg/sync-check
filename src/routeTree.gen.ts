@@ -9,38 +9,175 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedUserRouteImport } from './routes/_authenticated/user'
+import { Route as AuthenticatedDesignerRouteImport } from './routes/_authenticated/designer'
+import { Route as AuthenticatedUserIndexRouteImport } from './routes/_authenticated/user.index'
+import { Route as AuthenticatedUserHistoryRouteImport } from './routes/_authenticated/user.history'
+import { Route as AuthenticatedCardAdminRouteImport } from './routes/_authenticated/card.admin'
+import { Route as AuthenticatedAdminAiSettingsRouteImport } from './routes/_authenticated/admin.ai-settings'
+import { Route as AuthenticatedUserTemplatesTidRouteImport } from './routes/_authenticated/user.templates.$tid'
+import { Route as AuthenticatedUserEntriesEntryIdRouteImport } from './routes/_authenticated/user.entries.$entryId'
 
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedUserRoute = AuthenticatedUserRouteImport.update({
+  id: '/user',
+  path: '/user',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedDesignerRoute = AuthenticatedDesignerRouteImport.update({
+  id: '/designer',
+  path: '/designer',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedUserIndexRoute = AuthenticatedUserIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedUserRoute,
+} as any)
+const AuthenticatedUserHistoryRoute =
+  AuthenticatedUserHistoryRouteImport.update({
+    id: '/history',
+    path: '/history',
+    getParentRoute: () => AuthenticatedUserRoute,
+  } as any)
+const AuthenticatedCardAdminRoute = AuthenticatedCardAdminRouteImport.update({
+  id: '/card/admin',
+  path: '/card/admin',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAdminAiSettingsRoute =
+  AuthenticatedAdminAiSettingsRouteImport.update({
+    id: '/admin/ai-settings',
+    path: '/admin/ai-settings',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedUserTemplatesTidRoute =
+  AuthenticatedUserTemplatesTidRouteImport.update({
+    id: '/templates/$tid',
+    path: '/templates/$tid',
+    getParentRoute: () => AuthenticatedUserRoute,
+  } as any)
+const AuthenticatedUserEntriesEntryIdRoute =
+  AuthenticatedUserEntriesEntryIdRouteImport.update({
+    id: '/entries/$entryId',
+    path: '/entries/$entryId',
+    getParentRoute: () => AuthenticatedUserRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/designer': typeof AuthenticatedDesignerRoute
+  '/user': typeof AuthenticatedUserRouteWithChildren
+  '/admin/ai-settings': typeof AuthenticatedAdminAiSettingsRoute
+  '/card/admin': typeof AuthenticatedCardAdminRoute
+  '/user/history': typeof AuthenticatedUserHistoryRoute
+  '/user/': typeof AuthenticatedUserIndexRoute
+  '/user/entries/$entryId': typeof AuthenticatedUserEntriesEntryIdRoute
+  '/user/templates/$tid': typeof AuthenticatedUserTemplatesTidRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/designer': typeof AuthenticatedDesignerRoute
+  '/admin/ai-settings': typeof AuthenticatedAdminAiSettingsRoute
+  '/card/admin': typeof AuthenticatedCardAdminRoute
+  '/user/history': typeof AuthenticatedUserHistoryRoute
+  '/user': typeof AuthenticatedUserIndexRoute
+  '/user/entries/$entryId': typeof AuthenticatedUserEntriesEntryIdRoute
+  '/user/templates/$tid': typeof AuthenticatedUserTemplatesTidRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/_authenticated/designer': typeof AuthenticatedDesignerRoute
+  '/_authenticated/user': typeof AuthenticatedUserRouteWithChildren
+  '/_authenticated/admin/ai-settings': typeof AuthenticatedAdminAiSettingsRoute
+  '/_authenticated/card/admin': typeof AuthenticatedCardAdminRoute
+  '/_authenticated/user/history': typeof AuthenticatedUserHistoryRoute
+  '/_authenticated/user/': typeof AuthenticatedUserIndexRoute
+  '/_authenticated/user/entries/$entryId': typeof AuthenticatedUserEntriesEntryIdRoute
+  '/_authenticated/user/templates/$tid': typeof AuthenticatedUserTemplatesTidRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/designer'
+    | '/user'
+    | '/admin/ai-settings'
+    | '/card/admin'
+    | '/user/history'
+    | '/user/'
+    | '/user/entries/$entryId'
+    | '/user/templates/$tid'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/auth'
+    | '/designer'
+    | '/admin/ai-settings'
+    | '/card/admin'
+    | '/user/history'
+    | '/user'
+    | '/user/entries/$entryId'
+    | '/user/templates/$tid'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/auth'
+    | '/_authenticated/designer'
+    | '/_authenticated/user'
+    | '/_authenticated/admin/ai-settings'
+    | '/_authenticated/card/admin'
+    | '/_authenticated/user/history'
+    | '/_authenticated/user/'
+    | '/_authenticated/user/entries/$entryId'
+    | '/_authenticated/user/templates/$tid'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AuthRoute: typeof AuthRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +185,104 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/user': {
+      id: '/_authenticated/user'
+      path: '/user'
+      fullPath: '/user'
+      preLoaderRoute: typeof AuthenticatedUserRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/designer': {
+      id: '/_authenticated/designer'
+      path: '/designer'
+      fullPath: '/designer'
+      preLoaderRoute: typeof AuthenticatedDesignerRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/user/': {
+      id: '/_authenticated/user/'
+      path: '/'
+      fullPath: '/user/'
+      preLoaderRoute: typeof AuthenticatedUserIndexRouteImport
+      parentRoute: typeof AuthenticatedUserRoute
+    }
+    '/_authenticated/user/history': {
+      id: '/_authenticated/user/history'
+      path: '/history'
+      fullPath: '/user/history'
+      preLoaderRoute: typeof AuthenticatedUserHistoryRouteImport
+      parentRoute: typeof AuthenticatedUserRoute
+    }
+    '/_authenticated/card/admin': {
+      id: '/_authenticated/card/admin'
+      path: '/card/admin'
+      fullPath: '/card/admin'
+      preLoaderRoute: typeof AuthenticatedCardAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/admin/ai-settings': {
+      id: '/_authenticated/admin/ai-settings'
+      path: '/admin/ai-settings'
+      fullPath: '/admin/ai-settings'
+      preLoaderRoute: typeof AuthenticatedAdminAiSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/user/templates/$tid': {
+      id: '/_authenticated/user/templates/$tid'
+      path: '/templates/$tid'
+      fullPath: '/user/templates/$tid'
+      preLoaderRoute: typeof AuthenticatedUserTemplatesTidRouteImport
+      parentRoute: typeof AuthenticatedUserRoute
+    }
+    '/_authenticated/user/entries/$entryId': {
+      id: '/_authenticated/user/entries/$entryId'
+      path: '/entries/$entryId'
+      fullPath: '/user/entries/$entryId'
+      preLoaderRoute: typeof AuthenticatedUserEntriesEntryIdRouteImport
+      parentRoute: typeof AuthenticatedUserRoute
+    }
   }
 }
 
+interface AuthenticatedUserRouteChildren {
+  AuthenticatedUserHistoryRoute: typeof AuthenticatedUserHistoryRoute
+  AuthenticatedUserIndexRoute: typeof AuthenticatedUserIndexRoute
+  AuthenticatedUserEntriesEntryIdRoute: typeof AuthenticatedUserEntriesEntryIdRoute
+  AuthenticatedUserTemplatesTidRoute: typeof AuthenticatedUserTemplatesTidRoute
+}
+
+const AuthenticatedUserRouteChildren: AuthenticatedUserRouteChildren = {
+  AuthenticatedUserHistoryRoute: AuthenticatedUserHistoryRoute,
+  AuthenticatedUserIndexRoute: AuthenticatedUserIndexRoute,
+  AuthenticatedUserEntriesEntryIdRoute: AuthenticatedUserEntriesEntryIdRoute,
+  AuthenticatedUserTemplatesTidRoute: AuthenticatedUserTemplatesTidRoute,
+}
+
+const AuthenticatedUserRouteWithChildren =
+  AuthenticatedUserRoute._addFileChildren(AuthenticatedUserRouteChildren)
+
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedDesignerRoute: typeof AuthenticatedDesignerRoute
+  AuthenticatedUserRoute: typeof AuthenticatedUserRouteWithChildren
+  AuthenticatedAdminAiSettingsRoute: typeof AuthenticatedAdminAiSettingsRoute
+  AuthenticatedCardAdminRoute: typeof AuthenticatedCardAdminRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedDesignerRoute: AuthenticatedDesignerRoute,
+  AuthenticatedUserRoute: AuthenticatedUserRouteWithChildren,
+  AuthenticatedAdminAiSettingsRoute: AuthenticatedAdminAiSettingsRoute,
+  AuthenticatedCardAdminRoute: AuthenticatedCardAdminRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

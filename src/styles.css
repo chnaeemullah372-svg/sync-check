@@ -19,6 +19,27 @@
  */
 
 @theme inline {
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --color-ink: #1a1a1a;
+  --color-ink-2: #2d2d2d;
+  --color-ink-3: #4a4a4a;
+  --color-ember: #e85d3a;
+  --color-ember-soft: #fce8e1;
+  --color-user-page: var(--user-page);
+  --color-user-surface: var(--user-surface);
+  --color-user-ink: var(--user-ink);
+  --color-user-muted: var(--user-muted);
+  --color-user-border: var(--user-border);
+  --color-user-sidebar: var(--user-sidebar);
+  --color-user-sidebar-foreground: var(--user-sidebar-foreground);
+  --color-user-sidebar-muted: var(--user-sidebar-muted);
+  --color-user-sidebar-soft: var(--user-sidebar-soft);
+  --color-user-sidebar-hover: var(--user-sidebar-hover);
+  --color-user-sidebar-active: var(--user-sidebar-active);
+  --color-user-sidebar-border: var(--user-sidebar-border);
+  --color-user-brand: var(--user-brand);
+  --color-user-brand-soft: var(--user-brand-soft);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -95,6 +116,20 @@
   --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
   --sidebar-border: oklch(0.929 0.013 255.508);
   --sidebar-ring: oklch(0.704 0.04 256.788);
+  --user-page: oklch(0.977 0.006 247.9);
+  --user-surface: oklch(1 0 0);
+  --user-ink: oklch(0.18 0.045 255);
+  --user-muted: oklch(0.49 0.035 257);
+  --user-border: oklch(0.9 0.018 255);
+  --user-sidebar: oklch(0.18 0.08 251);
+  --user-sidebar-foreground: oklch(0.99 0.002 247);
+  --user-sidebar-muted: oklch(0.78 0.024 248);
+  --user-sidebar-soft: oklch(0.88 0.016 248);
+  --user-sidebar-hover: oklch(0.27 0.087 251);
+  --user-sidebar-active: oklch(0.57 0.205 258);
+  --user-sidebar-border: oklch(1 0 0 / 16%);
+  --user-brand: oklch(0.38 0.12 153);
+  --user-brand-soft: oklch(0.96 0.035 153);
 }
 
 .dark {
@@ -140,5 +175,11 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: var(--font-sans);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
   }
 }
