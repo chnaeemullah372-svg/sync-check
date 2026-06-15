@@ -247,7 +247,7 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedId, layers, updateLayer]);
+  }, [selectedId, layers, updateLayer, setActiveTool]);
 
   const setNodeRef = (id: string) => (n: Konva.Node | null) => {
     if (n) nodeMap.current.set(id, n);
