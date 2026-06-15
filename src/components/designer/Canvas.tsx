@@ -51,6 +51,7 @@ function ImageNode({ layer, isSelected, onSelect, onChange, onDragEnd, nodeRef }
       ref={groupRef}
       x={layer.x} y={layer.y} width={layer.width} height={layer.height}
       rotation={layer.rotation} opacity={layer.opacity} visible={layer.visible}
+      listening={!layer.locked}
       draggable={!layer.locked} onClick={onSelect} onTap={onSelect}
       onDragEnd={(e) => onDragEnd(e.target.x(), e.target.y())}
       onTransformEnd={() => {
@@ -82,7 +83,9 @@ function TextNode({ layer, onSelect, onChange, onDragEnd, onDblClick, nodeRef }:
       text={layer.text} x={layer.x} y={layer.y} width={layer.width} height={layer.height}
       fontSize={layer.fontSize} fontFamily={layer.fontFamily} fontStyle={layer.fontStyle}
       fill={layer.fill} align={layer.align} rotation={layer.rotation}
-      opacity={layer.opacity} visible={layer.visible} draggable={!layer.locked}
+      opacity={layer.opacity} visible={layer.visible}
+      listening={!layer.locked}
+      draggable={!layer.locked}
       onClick={onSelect} onTap={onSelect}
       onDblClick={onDblClick} onDblTap={onDblClick}
       onDragEnd={(e) => onDragEnd(e.target.x(), e.target.y())}
@@ -106,6 +109,7 @@ function BoxNode({ layer, onSelect, onChange, onDragEnd, nodeRef }: NodeProps<Bo
     <Rect ref={ref} x={layer.x} y={layer.y} width={layer.width} height={layer.height}
       fill={layer.fill} stroke={layer.stroke} strokeWidth={layer.strokeWidth}
       rotation={layer.rotation} opacity={layer.opacity} visible={layer.visible}
+      listening={!layer.locked}
       draggable={!layer.locked} onClick={onSelect} onTap={onSelect}
       onDragEnd={(e) => onDragEnd(e.target.x(), e.target.y())}
       onTransformEnd={() => {
@@ -127,6 +131,7 @@ function LineNode({ layer, onSelect, onChange, onDragEnd, nodeRef }: NodeProps<L
     <Line ref={ref} x={layer.x} y={layer.y} points={[0, 0, layer.width, 0]}
       stroke={layer.stroke} strokeWidth={layer.strokeWidth}
       rotation={layer.rotation} opacity={layer.opacity} visible={layer.visible}
+      listening={!layer.locked}
       draggable={!layer.locked} onClick={onSelect} onTap={onSelect}
       onDragEnd={(e) => onDragEnd(e.target.x(), e.target.y())}
       onTransformEnd={() => {
