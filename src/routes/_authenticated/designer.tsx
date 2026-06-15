@@ -17,6 +17,7 @@ import {
   FontSheet, FontSizeSheet, ColorSheet, PositionSheet, AlignSheet,
   AIFieldSheet, AIInstructionsSheet, LayersSheet, BackgroundSheet, PageSizeSheet, UploadsSheet,
 } from "@/components/designer/canva/Sheets";
+import { LeftToolbar } from "@/components/designer/canva/LeftToolbar";
 
 const DesignerCanvas = lazy(() =>
   import("@/components/designer/Canvas").then((m) => ({ default: m.DesignerCanvas })),
