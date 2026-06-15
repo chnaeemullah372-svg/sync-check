@@ -386,6 +386,17 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
             {layers.map((layer) => {
               const isSel = selectedIds.includes(layer.id);
               const onSelect = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+                // Fill tool: tap layer → fill with toolColor
+                if (activeTool === "fill") {
+                  if (layer.type === "text" || layer.type === "box") {
+                    updateLayer(layer.id, { fill: toolColor } as any);
+                  } else if (layer.type === "line") {
+                    updateLayer(layer.id, { stroke: toolColor } as any);
+                  }
+                  toast.success(`Filled ${toolColor.toUpperCase()}`);
+                  e.cancelBubble = true;
+                  return;
+                }
                 const native = e.evt as MouseEvent;
                 selectLayer(layer.id, native?.shiftKey || (native as any)?.ctrlKey || (native as any)?.metaKey);
               };
