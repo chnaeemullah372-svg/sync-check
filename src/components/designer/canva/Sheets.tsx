@@ -479,5 +479,3 @@ export function UploadsSheet() {
     </CanvaSheet>
   );
 }
-
-import { makeId } from "@/lib/designer/store";
