@@ -224,9 +224,16 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!selectedId) return;
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
+      // Tool shortcuts (work regardless of selection)
+      if (!e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (e.key === "v" || e.key === "V") { setActiveTool("select"); return; }
+        if (e.key === "r" || e.key === "R") { setActiveTool("rect"); return; }
+        if (e.key === "g" || e.key === "G") { setActiveTool("fill"); return; }
+        if (e.key === "i" || e.key === "I") { setActiveTool("eyedropper"); return; }
+      }
+      if (!selectedId) return;
       const layer = layers.find((l) => l.id === selectedId);
       if (!layer) return;
       const step = e.shiftKey ? 10 : 1;
