@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { CanvaSheet } from "./Sheet";
 import { useDock } from "./dockState";
-import { useDesigner } from "@/lib/designer/store";
+import { useDesigner, makeId } from "@/lib/designer/store";
 import type { TextLayer } from "@/lib/designer/types";
+
 import { FONT_LIBRARY, FONT_CATEGORIES, DEFAULT_COLORS } from "@/lib/designer/fonts";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
