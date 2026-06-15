@@ -193,6 +193,7 @@ function DesignerPage() {
         <CanvaTopBar userMode={userMode} entryId={entryId} />
         <div className="flex-1 flex overflow-hidden relative">
           {canvas}
+          {!userMode && <LeftToolbar />}
         </div>
         <BottomDock />
         {/* Sheets */}
