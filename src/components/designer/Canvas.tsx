@@ -365,7 +365,7 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
   };
 
   return (
-    <div ref={containerRef} className="flex-1 overflow-auto bg-muted/40 flex items-center justify-center p-4 relative" style={{ touchAction: "pan-x pan-y" }}>
+    <div ref={containerRef} className="flex-1 overflow-auto bg-muted/40 flex items-center justify-center p-4 relative" style={{ touchAction: "pan-x pan-y", cursor: activeTool === "rect" ? "crosshair" : activeTool === "fill" ? "cell" : activeTool === "eyedropper" ? "crosshair" : "default" }}>
       <div className="bg-white shadow-2xl relative" style={{ width: canvasWidth * scale, height: canvasHeight * scale }}>
         <Stage
           ref={(s) => { stageRef.current = s; }}
