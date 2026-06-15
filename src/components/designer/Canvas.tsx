@@ -257,25 +257,61 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
     }
   };
 
+  const drawingRect = useRef<"rect" | null>(null);
+
+  const stagePoint = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+    const stage = e.target.getStage();
+    if (!stage) return null;
+    const pos = stage.getPointerPosition();
+    if (!pos) return null;
+    return { x: pos.x / scale, y: pos.y / scale };
+  };
+
   const handleStageMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    // Eyedropper: pick color from any pixel on stage
+    if (activeTool === "eyedropper") {
+      const stage = e.target.getStage();
+      const pos = stage?.getPointerPosition();
+      if (stage && pos) {
+        try {
+          const canvas = stage.toCanvas({ pixelRatio: 1 });
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            const d = ctx.getImageData(pos.x, pos.y, 1, 1).data;
+            const hex = "#" + [d[0], d[1], d[2]].map((n) => n.toString(16).padStart(2, "0")).join("");
+            setToolColor(hex);
+            toast.success(`Picked ${hex.toUpperCase()}`);
+            setActiveTool("select");
+          }
+        } catch (err) {
+          console.error(err);
+          toast.error("Color pick failed");
+        }
+      }
+      return;
+    }
+    // Rect tool: start drawing
+    if (activeTool === "rect" && e.target === e.target.getStage()) {
+      const p = stagePoint(e);
+      if (!p) return;
+      drawingRect.current = "rect";
+      marqueeStart.current = p;
+      setMarquee({ x: p.x, y: p.y, w: 0, h: 0 });
+      return;
+    }
+    // Default select tool: marquee select
     if (e.target !== e.target.getStage()) return;
     selectLayer(null);
-    const stage = e.target.getStage();
-    if (!stage) return;
-    const pos = stage.getPointerPosition();
-    if (!pos) return;
-    const p = { x: pos.x / scale, y: pos.y / scale };
+    const p = stagePoint(e);
+    if (!p) return;
     marqueeStart.current = p;
     setMarquee({ x: p.x, y: p.y, w: 0, h: 0 });
   };
 
   const handleStageMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (!marqueeStart.current) return;
-    const stage = e.target.getStage();
-    if (!stage) return;
-    const pos = stage.getPointerPosition();
-    if (!pos) return;
-    const p = { x: pos.x / scale, y: pos.y / scale };
+    const p = stagePoint(e);
+    if (!p) return;
     const s = marqueeStart.current;
     setMarquee({
       x: Math.min(s.x, p.x), y: Math.min(s.y, p.y),
@@ -284,8 +320,25 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
   };
 
   const handleStageMouseUp = () => {
-    if (!marquee || !marqueeStart.current) { marqueeStart.current = null; setMarquee(null); return; }
+    if (!marquee || !marqueeStart.current) { marqueeStart.current = null; setMarquee(null); drawingRect.current = null; return; }
     const m = marquee;
+    // Rect tool: create a BoxLayer
+    if (drawingRect.current === "rect") {
+      if (m.w > 5 && m.h > 5) {
+        addLayer({
+          id: makeId(), name: "Rectangle", type: "box",
+          x: m.x, y: m.y, width: m.w, height: m.h,
+          rotation: 0, opacity: 1, visible: true, locked: false,
+          fill: toolColor, stroke: toolColor, strokeWidth: 0,
+        } as Layer);
+        setActiveTool("select");
+      }
+      drawingRect.current = null;
+      marqueeStart.current = null;
+      setMarquee(null);
+      return;
+    }
+    // Marquee select
     if (m.w > 5 && m.h > 5) {
       const inside = layers.filter((l) => {
         if (!l.visible) return false;
