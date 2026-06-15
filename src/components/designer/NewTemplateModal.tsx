@@ -228,12 +228,16 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) setMemberStep(false); }}>
+    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) { setMemberStep(false); setBlankPending(null); } }}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{memberStep ? "How many members?" : "Create new template"}</DialogTitle>
+          <DialogTitle>
+            {blankPending ? "Fit the image to A4?" : memberStep ? "How many members?" : "Create new template"}
+          </DialogTitle>
           <DialogDescription>
-            {memberStep ? "Pick how many member slots to start with — you can add/remove later." : "Pick a starting point for the Designer."}
+            {blankPending
+              ? "Auto fits proportionally to A4 portrait. Custom keeps the image's original size."
+              : memberStep ? "Pick how many member slots to start with — you can add/remove later." : "Pick a starting point for the Designer."}
           </DialogDescription>
         </DialogHeader>
 
@@ -248,8 +252,50 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
             e.currentTarget.value = "";
           }}
         />
+        <input
+          ref={blankFileRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) handleBlankFile(f);
+            e.currentTarget.value = "";
+          }}
+        />
 
-        {memberStep ? (
+        {blankPending ? (
+          <div className="space-y-4 pt-1">
+            <div className="rounded-lg border bg-muted/30 p-3 flex items-center gap-3">
+              <img src={blankPending.src} alt="Preview" className="h-20 w-20 object-contain bg-white rounded border" />
+              <div className="text-xs text-slate-600">
+                <div className="font-semibold text-slate-900">Image loaded</div>
+                <div>{blankPending.width} × {blankPending.height} px</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                onClick={() => commitBlank("auto")}
+                className="text-left rounded-lg border-2 border-primary p-4 hover:shadow-md transition bg-primary/5"
+              >
+                <div className="font-bold text-sm mb-1">Auto → fit A4</div>
+                <div className="text-xs text-slate-600 leading-snug">
+                  Canvas = A4 portrait (794×1123). Image scales to fit proportionally, centered.
+                </div>
+              </button>
+              <button
+                onClick={() => commitBlank("custom")}
+                className="text-left rounded-lg border p-4 hover:border-slate-400 hover:shadow-sm transition"
+              >
+                <div className="font-bold text-sm mb-1">Custom → keep original</div>
+                <div className="text-xs text-slate-600 leading-snug">
+                  Canvas matches image size exactly ({blankPending.width}×{blankPending.height}).
+                </div>
+              </button>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setBlankPending(null)} className="w-full">← Choose a different image</Button>
+          </div>
+        ) : memberStep ? (
           <div className="space-y-4 pt-1">
             <div>
               <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">Quick presets</div>
