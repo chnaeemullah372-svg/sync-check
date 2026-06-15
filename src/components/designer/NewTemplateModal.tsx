@@ -65,6 +65,13 @@ const OPTIONS: {
     tint: "bg-green-50 text-green-700",
   },
   {
+    id: "blank",
+    title: "Blank Template",
+    desc: "Upload an image (PNG/JPG) as background — fit to A4 or keep original size.",
+    icon: ImageIcon,
+    tint: "bg-violet-50 text-violet-600",
+  },
+  {
     id: "psd",
     title: "Import PSD",
     desc: "Upload a .psd file — full project comes in as editable layers.",
