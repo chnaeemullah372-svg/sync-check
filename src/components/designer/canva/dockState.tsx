@@ -38,7 +38,7 @@ export function DockProvider({ children }: { children: ReactNode }) {
   const [toolColor, setToolColor] = useState<string>("#3B82F6");
   const [toolbarOpen, setToolbarOpen] = useState<boolean>(false);
   return (
-    <Ctx.Provider value={{ openSheet, setOpenSheet, activeTool, setActiveTool, toolColor, setToolColor }}>
+    <Ctx.Provider value={{ openSheet, setOpenSheet, activeTool, setActiveTool, toolColor, setToolColor, toolbarOpen, setToolbarOpen }}>
       {children}
     </Ctx.Provider>
   );
