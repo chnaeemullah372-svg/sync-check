@@ -22,23 +22,46 @@ export const FONT_LIBRARY: FontDef[] = [
   { family: "Space Grotesk", label: "Space Grotesk", category: "sans" },
   { family: "DM Sans", label: "DM Sans", category: "sans" },
   { family: "Roboto Condensed", label: "Roboto Condensed", category: "sans" },
+  { family: "Work Sans", label: "Work Sans", category: "sans" },
+  { family: "Manrope", label: "Manrope", category: "sans" },
+  { family: "Outfit", label: "Outfit", category: "sans" },
+  { family: "Plus Jakarta Sans", label: "Plus Jakarta Sans", category: "sans" },
 
   // English — Serif
   { family: "Playfair Display", label: "Playfair Display", category: "serif" },
   { family: "Lora", label: "Lora", category: "serif" },
   { family: "Merriweather", label: "Merriweather", category: "serif" },
+  { family: "EB Garamond", label: "EB Garamond", category: "serif" },
+  { family: "Cormorant Garamond", label: "Cormorant", category: "serif" },
+  { family: "PT Serif", label: "PT Serif", category: "serif" },
 
   // English — Display
   { family: "Bebas Neue", label: "Bebas Neue", category: "display" },
   { family: "Oswald", label: "Oswald", category: "display" },
+  { family: "Anton", label: "Anton", category: "display" },
+  { family: "Righteous", label: "Righteous", category: "display" },
+  { family: "Pacifico", label: "Pacifico", category: "display" },
+  { family: "Caveat", label: "Caveat", category: "display" },
+  { family: "Dancing Script", label: "Dancing Script", category: "display" },
 
-  // Urdu / Arabic
-  { family: "Noto Nastaliq Urdu", label: "نوٹو نستعلیق", category: "urdu", preview: "نمونہ متن", rtl: true },
-  { family: "Mirza", label: "میرزا", category: "urdu", preview: "نمونہ متن", rtl: true },
-  { family: "Gulzar", label: "گلزار", category: "urdu", preview: "نمونہ متن", rtl: true },
+  // Urdu (Nastaliq / Naskh style)
+  { family: "Noto Nastaliq Urdu", label: "نوٹو نستعلیق اردو", category: "urdu", preview: "نمونہ متن اردو", rtl: true },
+  { family: "Gulzar", label: "گلزار", category: "urdu", preview: "نمونہ متن اردو", rtl: true },
+  { family: "Mirza", label: "میرزا", category: "urdu", preview: "نمونہ متن اردو", rtl: true },
+  { family: "Jameel Noori Nastaleeq", label: "جمیل نوری نستعلیق", category: "urdu", preview: "نمونہ متن اردو", rtl: true },
+  { family: "Alvi Nastaleeq", label: "علوی نستعلیق", category: "urdu", preview: "نمونہ متن اردو", rtl: true },
+
+  // Arabic
   { family: "Noto Naskh Arabic", label: "نسخ عربي", category: "arabic", preview: "نموذج النص", rtl: true },
   { family: "Amiri", label: "أميري", category: "arabic", preview: "نموذج النص", rtl: true },
   { family: "Scheherazade New", label: "شهرزاد", category: "arabic", preview: "نموذج النص", rtl: true },
+  { family: "Aref Ruqaa", label: "عارف رقعة", category: "arabic", preview: "نموذج النص", rtl: true },
+  { family: "Reem Kufi", label: "ريم كوفي", category: "arabic", preview: "نموذج النص", rtl: true },
+  { family: "Markazi Text", label: "مركزي", category: "arabic", preview: "نموذج النص", rtl: true },
+  { family: "Lateef", label: "لطيف", category: "arabic", preview: "نموذج النص", rtl: true },
+  { family: "Vibes", label: "Vibes Arabic", category: "arabic", preview: "نموذج النص", rtl: true },
+  { family: "Cairo", label: "القاهرة", category: "arabic", preview: "نموذج النص", rtl: true },
+  { family: "Tajawal", label: "تجوال", category: "arabic", preview: "نموذج النص", rtl: true },
 ];
 
 export const FONT_CATEGORIES: Array<{ id: FontDef["category"]; label: string }> = [
