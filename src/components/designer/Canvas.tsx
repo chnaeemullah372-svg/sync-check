@@ -415,13 +415,13 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
             <Transformer
               ref={transformerRef}
               rotateEnabled keepRatio={false} shouldOverdrawWholeArea
-              anchorSize={14}
-              anchorStroke="#a855f7"
+              anchorSize={12}
+              anchorStroke="#00C4CC"
               anchorFill="#ffffff"
-              anchorCornerRadius={7}
-              borderStroke="#a855f7"
-              borderStrokeWidth={2}
-              rotateAnchorOffset={30}
+              anchorCornerRadius={6}
+              borderStroke="#00C4CC"
+              borderStrokeWidth={1.5}
+              rotateAnchorOffset={28}
               boundBoxFunc={(oldBox, newBox) => {
                 if (newBox.width < 5 || newBox.height < 5) return oldBox;
                 return newBox;
@@ -430,7 +430,10 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
             {marquee && (
               <Rect
                 x={marquee.x} y={marquee.y} width={marquee.w} height={marquee.h}
-                fill="rgba(168,85,247,0.12)" stroke="#a855f7" strokeWidth={1} dash={[4, 3]}
+                fill={drawingRect.current === "rect" ? `${toolColor}33` : "rgba(0,196,204,0.12)"}
+                stroke={drawingRect.current === "rect" ? toolColor : "#00C4CC"}
+                strokeWidth={1}
+                dash={drawingRect.current === "rect" ? undefined : [4, 3]}
                 listening={false}
               />
             )}
