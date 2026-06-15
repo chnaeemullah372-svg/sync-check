@@ -133,6 +133,7 @@ export function BottomDock() {
   } else {
     // Nothing selected
     items = [
+      { id: "tools", label: toolbarOpen ? "Hide Tools" : "Tools", icon: Wrench, action: () => setToolbarOpen(!toolbarOpen), highlight: toolbarOpen },
       { id: "text", label: "Text", icon: Type, action: () => addText("body") },
       { id: "heading", label: "Heading", icon: FileText, action: () => addText("heading") },
       { id: "image", label: "Image", icon: ImageIcon, action: addImage },
