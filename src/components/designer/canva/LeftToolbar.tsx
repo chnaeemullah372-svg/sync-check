@@ -1,4 +1,4 @@
-import { MousePointer2, Square, PaintBucket, Pipette } from "lucide-react";
+import { MousePointer2, Square, PaintBucket, Pipette, X } from "lucide-react";
 import { useDock, type ToolId } from "./dockState";
 import { cn } from "@/lib/utils";
 
