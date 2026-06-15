@@ -406,6 +406,8 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
                 }
                 const native = e.evt as MouseEvent;
                 selectLayer(layer.id, native?.shiftKey || (native as any)?.ctrlKey || (native as any)?.metaKey);
+                // If a property/background sheet is open, dismiss it so the new selection's context applies
+                if (openSheet) setOpenSheet(null);
               };
               const common = {
                 isSelected: isSel,
