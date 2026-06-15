@@ -1,4 +1,4 @@
-import { MousePointer2, Square, PaintBucket, Pipette } from "lucide-react";
+import { MousePointer2, Square, PaintBucket, Pipette, X } from "lucide-react";
 import { useDock, type ToolId } from "./dockState";
 import { cn } from "@/lib/utils";
 
@@ -10,9 +10,17 @@ const TOOLS: { id: ToolId; label: string; icon: React.ComponentType<{ className?
 ];
 
 export function LeftToolbar() {
-  const { activeTool, setActiveTool, toolColor, setToolColor, setOpenSheet } = useDock();
+  const { activeTool, setActiveTool, toolColor, setToolColor, setOpenSheet, toolbarOpen, setToolbarOpen } = useDock();
+  if (!toolbarOpen) return null;
   return (
     <div className="absolute left-2 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-1 bg-card border rounded-xl shadow-lg p-1.5">
+      <button
+        onClick={() => setToolbarOpen(false)}
+        title="Close toolbar"
+        className="h-7 w-10 grid place-items-center rounded-md hover:bg-accent text-muted-foreground"
+      >
+        <X className="h-4 w-4" />
+      </button>
       {TOOLS.map((t) => {
         const Icon = t.icon;
         const active = activeTool === t.id;

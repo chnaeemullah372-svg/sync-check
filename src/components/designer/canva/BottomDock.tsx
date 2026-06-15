@@ -1,8 +1,8 @@
 import {
   Type, Image as ImageIcon, Square, Minus as MinusIcon, Sparkles,
   Layers as LayersIcon, Palette, MoveHorizontal, AlignLeft, Sliders, Crop,
-  Wand2, Users, Copy, Trash2, Lock, Unlock, Eye, EyeOff,
-  Replace, Maximize, RectangleVertical, FileText, Edit3,
+  Wand2, Users, Copy, Trash2,
+  Replace, Maximize, RectangleVertical, FileText, Edit3, Wrench,
 } from "lucide-react";
 import { useDesigner, makeId } from "@/lib/designer/store";
 import type { Layer } from "@/lib/designer/types";
@@ -20,7 +20,7 @@ interface DockButton {
 }
 
 export function BottomDock() {
-  const { setOpenSheet } = useDock();
+  const { setOpenSheet, toolbarOpen, setToolbarOpen } = useDock();
   const {
     selectedIds, selectedId, layers, addLayer, canvasWidth, canvasHeight,
     deleteLayer, duplicateLayer, updateLayer, groupAsMember,
@@ -133,6 +133,7 @@ export function BottomDock() {
   } else {
     // Nothing selected
     items = [
+      { id: "tools", label: toolbarOpen ? "Hide Tools" : "Tools", icon: Wrench, action: () => setToolbarOpen(!toolbarOpen), highlight: toolbarOpen },
       { id: "text", label: "Text", icon: Type, action: () => addText("body") },
       { id: "heading", label: "Heading", icon: FileText, action: () => addText("heading") },
       { id: "image", label: "Image", icon: ImageIcon, action: addImage },
