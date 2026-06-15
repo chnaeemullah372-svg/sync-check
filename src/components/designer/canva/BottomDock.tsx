@@ -20,7 +20,7 @@ interface DockButton {
 }
 
 export function BottomDock() {
-  const { setOpenSheet } = useDock();
+  const { setOpenSheet, toolbarOpen, setToolbarOpen } = useDock();
   const {
     selectedIds, selectedId, layers, addLayer, canvasWidth, canvasHeight,
     deleteLayer, duplicateLayer, updateLayer, groupAsMember,
