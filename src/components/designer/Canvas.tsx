@@ -404,6 +404,68 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
             }}
           />
         )}
+
+        {/* Floating quick-action toolbar — Canva style */}
+        {selectedLayer && !editingText && (() => {
+          const left = (selectedLayer.x + selectedLayer.width / 2) * scale;
+          const topRaw = selectedLayer.y * scale - 52;
+          const top = topRaw < 4 ? (selectedLayer.y + selectedLayer.height) * scale + 8 : topRaw;
+          return (
+            <div
+              className="absolute z-30 -translate-x-1/2 flex items-center gap-0.5 bg-white rounded-full shadow-lg border px-1 py-1"
+              style={{ left, top, pointerEvents: "auto" }}
+              onMouseDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+            >
+              {selectedLayer.type === "text" && (
+                <button
+                  className="h-9 w-9 grid place-items-center rounded-full hover:bg-accent"
+                  onClick={() => {
+                    const t = selectedLayer as TextLayer;
+                    setEditingText({
+                      id: t.id, value: t.text, x: t.x, y: t.y, w: t.width, h: t.height,
+                      fontSize: t.fontSize, fontFamily: t.fontFamily, color: t.fill,
+                      align: t.align, rtl: t.rtl,
+                    });
+                  }}
+                  aria-label="Edit"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+              )}
+              <button
+                className="h-9 w-9 grid place-items-center rounded-full hover:bg-accent"
+                onClick={() => duplicateLayer(selectedLayer.id)}
+                aria-label="Duplicate"
+              >
+                <Copy className="h-4 w-4" />
+              </button>
+              <button
+                className="h-9 w-9 grid place-items-center rounded-full hover:bg-accent"
+                onClick={() => updateLayer(selectedLayer.id, { locked: !selectedLayer.locked } as any)}
+                aria-label={selectedLayer.locked ? "Unlock" : "Lock"}
+              >
+                {selectedLayer.locked ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+              </button>
+              <button
+                className="h-9 w-9 grid place-items-center rounded-full hover:bg-destructive/10 text-destructive"
+                onClick={() => deleteLayer(selectedLayer.id)}
+                aria-label="Delete"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+              {onOpenMore && (
+                <button
+                  className="h-9 w-9 grid place-items-center rounded-full hover:bg-accent"
+                  onClick={onOpenMore}
+                  aria-label="More"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
