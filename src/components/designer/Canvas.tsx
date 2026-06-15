@@ -4,6 +4,8 @@ import type Konva from "konva";
 import { useDesigner } from "@/lib/designer/store";
 import type { ImageLayer, Layer, TextLayer, BoxLayer, LineLayer } from "@/lib/designer/types";
 import { Copy, Trash2, Lock, Unlock, MoreHorizontal, Pencil } from "lucide-react";
+import { useDock } from "./canva/dockState";
+import { toast } from "sonner";
 
 
 function useHTMLImage(src: string | null) {
