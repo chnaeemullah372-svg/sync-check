@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { setStagedPsd } from "@/lib/designer/psd-staging";
+import { setStagedBlank } from "@/lib/designer/blank-staging";
 import {
   Dialog,
   DialogContent,
@@ -8,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import {
   CreditCard,
   FileText,
@@ -15,10 +17,11 @@ import {
   FileImage,
   Loader2,
   ScrollText,
+  Image as ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
-export type NewTemplateMode = "card" | "onepage" | "member" | "psd" | "frc";
+export type NewTemplateMode = "card" | "onepage" | "member" | "psd" | "frc" | "blank";
 export type MemberCount = number; // 1..20
 
 interface Props {
