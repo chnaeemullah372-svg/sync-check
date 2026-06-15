@@ -153,7 +153,7 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
     selectedId, selectedIds, selectLayer, selectIds, updateLayer, translateSlot, userZoom, setUserZoom,
     duplicateLayer, deleteLayer, addLayer,
   } = useDesigner();
-  const { activeTool, setActiveTool, toolColor, setToolColor } = useDock();
+  const { activeTool, setActiveTool, toolColor, setToolColor, openSheet, setOpenSheet } = useDock();
   const selectedLayer = selectedIds.length === 1 ? layers.find((l) => l.id === selectedIds[0]) : null;
   const bgImg = useHTMLImage(background.src);
   const transformerRef = useRef<Konva.Transformer>(null);
@@ -406,6 +406,8 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
                 }
                 const native = e.evt as MouseEvent;
                 selectLayer(layer.id, native?.shiftKey || (native as any)?.ctrlKey || (native as any)?.metaKey);
+                // If a property/background sheet is open, dismiss it so the new selection's context applies
+                if (openSheet) setOpenSheet(null);
               };
               const common = {
                 isSelected: isSel,
