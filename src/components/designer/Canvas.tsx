@@ -145,11 +145,13 @@ function LineNode({ layer, onSelect, onChange, onDragEnd, nodeRef }: NodeProps<L
   );
 }
 
-export function DesignerCanvas({ stageRef }: { stageRef: React.MutableRefObject<Konva.Stage | null> }) {
+export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.MutableRefObject<Konva.Stage | null>; onOpenMore?: () => void }) {
   const {
     background, canvasWidth, canvasHeight, layers,
     selectedId, selectedIds, selectLayer, selectIds, updateLayer, translateSlot, userZoom, setUserZoom,
+    duplicateLayer, deleteLayer,
   } = useDesigner();
+  const selectedLayer = selectedIds.length === 1 ? layers.find((l) => l.id === selectedIds[0]) : null;
   const bgImg = useHTMLImage(background.src);
   const transformerRef = useRef<Konva.Transformer>(null);
   const nodeMap = useRef<Map<string, Konva.Node>>(new Map());
