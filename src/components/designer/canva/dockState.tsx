@@ -17,16 +17,28 @@ export type SheetId =
   | "pageSize"
   | null;
 
+export type ToolId = "select" | "rect" | "fill" | "eyedropper";
+
 interface DockCtx {
   openSheet: SheetId;
   setOpenSheet: (s: SheetId) => void;
+  activeTool: ToolId;
+  setActiveTool: (t: ToolId) => void;
+  toolColor: string;
+  setToolColor: (c: string) => void;
 }
 
 const Ctx = createContext<DockCtx | null>(null);
 
 export function DockProvider({ children }: { children: ReactNode }) {
   const [openSheet, setOpenSheet] = useState<SheetId>(null);
-  return <Ctx.Provider value={{ openSheet, setOpenSheet }}>{children}</Ctx.Provider>;
+  const [activeTool, setActiveTool] = useState<ToolId>("select");
+  const [toolColor, setToolColor] = useState<string>("#3B82F6");
+  return (
+    <Ctx.Provider value={{ openSheet, setOpenSheet, activeTool, setActiveTool, toolColor, setToolColor }}>
+      {children}
+    </Ctx.Provider>
+  );
 }
 
 export function useDock() {
