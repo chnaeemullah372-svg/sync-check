@@ -139,17 +139,6 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
   };
 
 
-  const pick = (mode: NewTemplateMode) => {
-    if (mode === "psd") {
-      fileRef.current?.click();
-      return;
-    }
-    if (mode === "member") {
-      setMemberStep(true);
-      return;
-    }
-    goMode(mode);
-  };
 
   const handlePsd = async (file: File) => {
     setParsing(true);
