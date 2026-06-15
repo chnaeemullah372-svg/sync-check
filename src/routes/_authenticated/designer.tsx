@@ -3,6 +3,7 @@ import { lazy, Suspense, useRef, useState, useEffect } from "react";
 import { z } from "zod";
 import type Konva from "konva";
 import { consumeStagedPsd } from "@/lib/designer/psd-staging";
+import { consumeStagedBlank } from "@/lib/designer/blank-staging";
 import { A4_PORTRAIT, useDesigner, makeId } from "@/lib/designer/store";
 import type { Layer } from "@/lib/designer/types";
 import { useDesignerAutosave } from "@/hooks/use-designer-autosave";
@@ -16,6 +17,7 @@ import {
   FontSheet, FontSizeSheet, ColorSheet, PositionSheet, AlignSheet,
   AIFieldSheet, AIInstructionsSheet, LayersSheet, BackgroundSheet, PageSizeSheet, UploadsSheet,
 } from "@/components/designer/canva/Sheets";
+import { LeftToolbar } from "@/components/designer/canva/LeftToolbar";
 
 const DesignerCanvas = lazy(() =>
   import("@/components/designer/Canvas").then((m) => ({ default: m.DesignerCanvas })),
@@ -71,9 +73,24 @@ function DesignerPage() {
     if (mode === "card") {
       st.loadState({ background: { src: null, width: CARD.w, height: CARD.h }, canvasWidth: CARD.w, canvasHeight: CARD.h, layers: [], memberNames: {} });
       st.setSize("custom", CARD.w, CARD.h);
-    } else if (mode === "onepage" || mode === "blank") {
+    } else if (mode === "onepage") {
       st.loadState({ background: { src: null, width: A4_PORTRAIT.w, height: A4_PORTRAIT.h }, canvasWidth: A4_PORTRAIT.w, canvasHeight: A4_PORTRAIT.h, layers: [], memberNames: {} });
       st.setSize("a4p");
+    } else if (mode === "blank") {
+      const b = consumeStagedBlank();
+      if (b) {
+        if (b.fitMode === "auto") {
+          st.loadState({ background: { src: b.src, width: A4_PORTRAIT.w, height: A4_PORTRAIT.h }, canvasWidth: A4_PORTRAIT.w, canvasHeight: A4_PORTRAIT.h, layers: [], memberNames: {} });
+          st.setSize("a4p");
+        } else {
+          st.loadState({ background: { src: b.src, width: b.width, height: b.height }, canvasWidth: b.width, canvasHeight: b.height, layers: [], memberNames: {} });
+          st.setSize("custom", b.width, b.height);
+        }
+        toast.success(`Background loaded (${b.fitMode === "auto" ? "fit A4" : `${b.width}×${b.height}`})`);
+      } else {
+        st.loadState({ background: { src: null, width: A4_PORTRAIT.w, height: A4_PORTRAIT.h }, canvasWidth: A4_PORTRAIT.w, canvasHeight: A4_PORTRAIT.h, layers: [], memberNames: {} });
+        st.setSize("a4p");
+      }
     } else if (mode === "member") {
       let count = 1;
       try { count = Math.max(1, Math.min(20, parseInt(sessionStorage.getItem("designer.memberCount") || "1", 10))); } catch { /* ignore */ }
@@ -176,6 +193,7 @@ function DesignerPage() {
         <CanvaTopBar userMode={userMode} entryId={entryId} />
         <div className="flex-1 flex overflow-hidden relative">
           {canvas}
+          {!userMode && <LeftToolbar />}
         </div>
         <BottomDock />
         {/* Sheets */}

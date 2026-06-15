@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Stage, Layer as KLayer, Rect, Text, Image as KImage, Transformer, Group, Line } from "react-konva";
 import type Konva from "konva";
-import { useDesigner } from "@/lib/designer/store";
+import { useDesigner, makeId } from "@/lib/designer/store";
 import type { ImageLayer, Layer, TextLayer, BoxLayer, LineLayer } from "@/lib/designer/types";
 import { Copy, Trash2, Lock, Unlock, MoreHorizontal, Pencil } from "lucide-react";
+import { useDock } from "./canva/dockState";
+import { toast } from "sonner";
 
 
 function useHTMLImage(src: string | null) {
@@ -149,8 +151,9 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
   const {
     background, canvasWidth, canvasHeight, layers,
     selectedId, selectedIds, selectLayer, selectIds, updateLayer, translateSlot, userZoom, setUserZoom,
-    duplicateLayer, deleteLayer,
+    duplicateLayer, deleteLayer, addLayer,
   } = useDesigner();
+  const { activeTool, setActiveTool, toolColor, setToolColor } = useDock();
   const selectedLayer = selectedIds.length === 1 ? layers.find((l) => l.id === selectedIds[0]) : null;
   const bgImg = useHTMLImage(background.src);
   const transformerRef = useRef<Konva.Transformer>(null);
@@ -221,9 +224,16 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!selectedId) return;
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
+      // Tool shortcuts (work regardless of selection)
+      if (!e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (e.key === "v" || e.key === "V") { setActiveTool("select"); return; }
+        if (e.key === "r" || e.key === "R") { setActiveTool("rect"); return; }
+        if (e.key === "g" || e.key === "G") { setActiveTool("fill"); return; }
+        if (e.key === "i" || e.key === "I") { setActiveTool("eyedropper"); return; }
+      }
+      if (!selectedId) return;
       const layer = layers.find((l) => l.id === selectedId);
       if (!layer) return;
       const step = e.shiftKey ? 10 : 1;
@@ -237,7 +247,7 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedId, layers, updateLayer]);
+  }, [selectedId, layers, updateLayer, setActiveTool]);
 
   const setNodeRef = (id: string) => (n: Konva.Node | null) => {
     if (n) nodeMap.current.set(id, n);
@@ -254,25 +264,61 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
     }
   };
 
+  const drawingRect = useRef<"rect" | null>(null);
+
+  const stagePoint = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+    const stage = e.target.getStage();
+    if (!stage) return null;
+    const pos = stage.getPointerPosition();
+    if (!pos) return null;
+    return { x: pos.x / scale, y: pos.y / scale };
+  };
+
   const handleStageMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    // Eyedropper: pick color from any pixel on stage
+    if (activeTool === "eyedropper") {
+      const stage = e.target.getStage();
+      const pos = stage?.getPointerPosition();
+      if (stage && pos) {
+        try {
+          const canvas = stage.toCanvas({ pixelRatio: 1 });
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            const d = ctx.getImageData(pos.x, pos.y, 1, 1).data;
+            const hex = "#" + [d[0], d[1], d[2]].map((n) => n.toString(16).padStart(2, "0")).join("");
+            setToolColor(hex);
+            toast.success(`Picked ${hex.toUpperCase()}`);
+            setActiveTool("select");
+          }
+        } catch (err) {
+          console.error(err);
+          toast.error("Color pick failed");
+        }
+      }
+      return;
+    }
+    // Rect tool: start drawing
+    if (activeTool === "rect" && e.target === e.target.getStage()) {
+      const p = stagePoint(e);
+      if (!p) return;
+      drawingRect.current = "rect";
+      marqueeStart.current = p;
+      setMarquee({ x: p.x, y: p.y, w: 0, h: 0 });
+      return;
+    }
+    // Default select tool: marquee select
     if (e.target !== e.target.getStage()) return;
     selectLayer(null);
-    const stage = e.target.getStage();
-    if (!stage) return;
-    const pos = stage.getPointerPosition();
-    if (!pos) return;
-    const p = { x: pos.x / scale, y: pos.y / scale };
+    const p = stagePoint(e);
+    if (!p) return;
     marqueeStart.current = p;
     setMarquee({ x: p.x, y: p.y, w: 0, h: 0 });
   };
 
   const handleStageMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (!marqueeStart.current) return;
-    const stage = e.target.getStage();
-    if (!stage) return;
-    const pos = stage.getPointerPosition();
-    if (!pos) return;
-    const p = { x: pos.x / scale, y: pos.y / scale };
+    const p = stagePoint(e);
+    if (!p) return;
     const s = marqueeStart.current;
     setMarquee({
       x: Math.min(s.x, p.x), y: Math.min(s.y, p.y),
@@ -281,8 +327,25 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
   };
 
   const handleStageMouseUp = () => {
-    if (!marquee || !marqueeStart.current) { marqueeStart.current = null; setMarquee(null); return; }
+    if (!marquee || !marqueeStart.current) { marqueeStart.current = null; setMarquee(null); drawingRect.current = null; return; }
     const m = marquee;
+    // Rect tool: create a BoxLayer
+    if (drawingRect.current === "rect") {
+      if (m.w > 5 && m.h > 5) {
+        addLayer({
+          id: makeId(), name: "Rectangle", type: "box",
+          x: m.x, y: m.y, width: m.w, height: m.h,
+          rotation: 0, opacity: 1, visible: true, locked: false,
+          fill: toolColor, stroke: toolColor, strokeWidth: 0,
+        } as Layer);
+        setActiveTool("select");
+      }
+      drawingRect.current = null;
+      marqueeStart.current = null;
+      setMarquee(null);
+      return;
+    }
+    // Marquee select
     if (m.w > 5 && m.h > 5) {
       const inside = layers.filter((l) => {
         if (!l.visible) return false;
@@ -309,7 +372,7 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
   };
 
   return (
-    <div ref={containerRef} className="flex-1 overflow-auto bg-muted/40 flex items-center justify-center p-4 relative" style={{ touchAction: "pan-x pan-y" }}>
+    <div ref={containerRef} className="flex-1 overflow-auto bg-muted/40 flex items-center justify-center p-4 relative" style={{ touchAction: "pan-x pan-y", cursor: activeTool === "rect" ? "crosshair" : activeTool === "fill" ? "cell" : activeTool === "eyedropper" ? "crosshair" : "default" }}>
       <div className="bg-white shadow-2xl relative" style={{ width: canvasWidth * scale, height: canvasHeight * scale }}>
         <Stage
           ref={(s) => { stageRef.current = s; }}
@@ -330,6 +393,17 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
             {layers.map((layer) => {
               const isSel = selectedIds.includes(layer.id);
               const onSelect = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+                // Fill tool: tap layer → fill with toolColor
+                if (activeTool === "fill") {
+                  if (layer.type === "text" || layer.type === "box") {
+                    updateLayer(layer.id, { fill: toolColor } as any);
+                  } else if (layer.type === "line") {
+                    updateLayer(layer.id, { stroke: toolColor } as any);
+                  }
+                  toast.success(`Filled ${toolColor.toUpperCase()}`);
+                  e.cancelBubble = true;
+                  return;
+                }
                 const native = e.evt as MouseEvent;
                 selectLayer(layer.id, native?.shiftKey || (native as any)?.ctrlKey || (native as any)?.metaKey);
               };
@@ -348,13 +422,13 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
             <Transformer
               ref={transformerRef}
               rotateEnabled keepRatio={false} shouldOverdrawWholeArea
-              anchorSize={14}
-              anchorStroke="#a855f7"
+              anchorSize={12}
+              anchorStroke="#00C4CC"
               anchorFill="#ffffff"
-              anchorCornerRadius={7}
-              borderStroke="#a855f7"
-              borderStrokeWidth={2}
-              rotateAnchorOffset={30}
+              anchorCornerRadius={6}
+              borderStroke="#00C4CC"
+              borderStrokeWidth={1.5}
+              rotateAnchorOffset={28}
               boundBoxFunc={(oldBox, newBox) => {
                 if (newBox.width < 5 || newBox.height < 5) return oldBox;
                 return newBox;
@@ -363,7 +437,10 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
             {marquee && (
               <Rect
                 x={marquee.x} y={marquee.y} width={marquee.w} height={marquee.h}
-                fill="rgba(168,85,247,0.12)" stroke="#a855f7" strokeWidth={1} dash={[4, 3]}
+                fill={drawingRect.current === "rect" ? `${toolColor}33` : "rgba(0,196,204,0.12)"}
+                stroke={drawingRect.current === "rect" ? toolColor : "#00C4CC"}
+                strokeWidth={1}
+                dash={drawingRect.current === "rect" ? undefined : [4, 3]}
                 listening={false}
               />
             )}
