@@ -86,10 +86,13 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
   const [parsing, setParsing] = useState(false);
   const [memberStep, setMemberStep] = useState(false);
   const [customCount, setCustomCount] = useState<string>("4");
+  const blankFileRef = useRef<HTMLInputElement>(null);
+  const [blankPending, setBlankPending] = useState<{ src: string; width: number; height: number } | null>(null);
 
   const goMode = (mode: NewTemplateMode, members?: MemberCount) => {
     onOpenChange(false);
     setMemberStep(false);
+    setBlankPending(null);
     try {
       sessionStorage.removeItem("designer.currentTemplateId");
       sessionStorage.removeItem("designer.currentTemplateName");
@@ -101,6 +104,40 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
     }
     navigate({ to: "/designer", search: { mode } as never });
   };
+
+  const pick = (mode: NewTemplateMode) => {
+    if (mode === "psd") {
+      fileRef.current?.click();
+      return;
+    }
+    if (mode === "blank") {
+      blankFileRef.current?.click();
+      return;
+    }
+    if (mode === "member") {
+      setMemberStep(true);
+      return;
+    }
+    goMode(mode);
+  };
+
+  const handleBlankFile = (file: File) => {
+    const r = new FileReader();
+    r.onload = () => {
+      const src = String(r.result);
+      const img = new Image();
+      img.onload = () => setBlankPending({ src, width: img.width, height: img.height });
+      img.src = src;
+    };
+    r.readAsDataURL(file);
+  };
+
+  const commitBlank = (fitMode: "auto" | "custom") => {
+    if (!blankPending) return;
+    setStagedBlank({ ...blankPending, fitMode });
+    goMode("blank");
+  };
+
 
   const pick = (mode: NewTemplateMode) => {
     if (mode === "psd") {
