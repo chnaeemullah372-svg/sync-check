@@ -153,7 +153,7 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
     selectedId, selectedIds, selectLayer, selectIds, updateLayer, translateSlot, userZoom, setUserZoom,
     duplicateLayer, deleteLayer, addLayer,
   } = useDesigner();
-  const { activeTool, setActiveTool, toolColor, setToolColor } = useDock();
+  const { activeTool, setActiveTool, toolColor, setToolColor, openSheet, setOpenSheet } = useDock();
   const selectedLayer = selectedIds.length === 1 ? layers.find((l) => l.id === selectedIds[0]) : null;
   const bgImg = useHTMLImage(background.src);
   const transformerRef = useRef<Konva.Transformer>(null);
