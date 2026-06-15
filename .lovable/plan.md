@@ -1,65 +1,25 @@
-## مقصد
+Message for Developer:
 
-آپ کی fresh zip (`http-punjab-case-management-live-main-2.zip`) کا مکمل کوڈ اِس Lovable پروجیکٹ میں ڈالنا، deps install کرنا، اور live publish کر کے آپ کو URLs دینا تاکہ آپ admin/user دونوں چیک کر سکیں۔
+Overall, the Phase 1 plan looks solid and covers almost exactly what we need. However, there are two CRITICAL adjustments you must make to your plan before we proceed, otherwise, the core functionality will fail:
 
----
+1. PSD Import: DO NOT convert Text to Image (Ref: Point 8)
 
-## اہم نوٹ (پہلے پڑھیں)
+You mentioned converting text layers to PNG data-URLs to resolve font/size issues. This is absolutely not acceptable. Our entire project relies on AI replacing these text fields (like member names, relations, etc.) later on. If a text layer becomes an image, the AI cannot edit it.
 
-zip کی `.env` ایک **پہلے سے موجود Supabase project** (`gyjwsrddzqcmeovmzgur`) کی طرف اشارہ کر رہی ہے — یعنی اصل database، users، اور admin account پہلے ہی اُس Supabase میں محفوظ ہیں۔ میں وہی `.env` رکھوں گا، لہٰذا آپ کا **پرانا admin login اور تمام data ویسے کا ویسا کام کرے گا** — صرف hosting/preview Lovable کے اِس نئے پروجیکٹ سے ہوگا۔
+Fix: Text layers MUST remain raw, editable text nodes in Konva. You need to solve the font scaling/resizing issues algorithmically (mapping width/height and fontSize correctly during import) instead of flattening them into images.
 
-⚠️ ایک ضروری کام آپ کو خود کرنا ہوگا: اُس Supabase project کے **Auth → URL Configuration** میں اِس نئے Lovable preview/published URL کو **Redirect URLs** میں add کرنا ہوگا، ورنہ login پر redirect fail ہوگا۔ Publish کے بعد میں آپ کو exact URLs دوں گا تاکہ آپ paste کر سکیں۔
+2. UI Layout MUST be Mobile-First (Bottom Sheet Navigation)
 
----
+Your proposed layout in Point 2 (Left Tools, Center Canvas, Right Panel) is completely Desktop-first. While fine for desktop, our primary focus is mobile users.
 
-## ویب سائٹ کیا ہے (مختصر تجزیہ)
+Fix: As shown in the Canva reference videos I provided, the mobile UI must use a Bottom Sheet navigation. When a user taps the canvas or a layer on a mobile device, the tools, layers, properties, and AI instructions must slide up from the bottom, rather than trying to use side panels.
 
-- **Stack:** TanStack Start + React 19 + Tailwind v4 + Supabase + Konva (canvas designer) + jsPDF + pdfjs
-- **Routes:**
-  - `/` — landing/index
-  - `/auth` — login/signup
-  - `/_authenticated/user.*` — user dashboard, history, templates, entries
-  - `/_authenticated/designer` — Konva-based template designer (admin)
-  - `/_authenticated/card.admin` — main admin panel (بڑی فائل ~41KB)
-  - `/_authenticated/admin.ai-settings` — AI provider settings (صرف status، keys نہیں)
-- **Backend:** Supabase Auth + RLS، roles `user_roles` table میں، AI keys صرف server secrets میں
+What is Approved:
 
----
+Everything else is perfectly aligned. The checkbox grouping logic in the Layers panel is a great idea for slotting, and the Typography/Fonts library (including the specific Urdu fonts) is approved.
 
-## Plan (steps)
-
-1. **Backup فولڈر صاف کریں:** موجودہ blank `src/routes/index.tsx` placeholder اور `routeTree.gen.ts` ہٹا کر zip کا مکمل `src/` overwrite کریں۔
-2. **Files extract & copy:** zip کو `/tmp` میں extract، پھر `.git` کے بغیر سب کچھ `/dev-server/` پر copy:
-  - `src/` (پورا)
-  - `package.json`, `bun.lock`, `bunfig.toml`, `components.json`, `eslint.config.js`, `vite.config.ts`, `tsconfig.json`, `.prettierrc`, `.prettierignore`
-  - `.env` (وہی Supabase credentials)
-  - `.lovable/plan.md` (reference کے لیے)
-3. **Install deps:** `bun install` چلائیں تاکہ Konva, jsPDF, pdfjs-dist, zustand, ag-psd, idb-keyval وغیرہ آ جائیں۔
-4. **Build verify:** auto build چلے گا — اگر کوئی error آئی تو fix کروں گا (مثلاً missing import یا route gen)۔
-5. **Preview چیک:** preview میں `/auth` کھول کر confirm کروں گا کہ login screen آ رہی ہے۔
-6. **Security scan:** publish سے پہلے `security--get_scan_results` چلاؤں گا۔
-7. **SEO metadata:** `__root.tsx` کا title/description پہلے سے "Punjab Case Management" پر set ہے یا نہیں check کر کے update کروں گا۔
-8. **Publish:** `preview_ui--publish` سے live کروں گا۔
-9. **URLs آپ کو دوں گا:**
-  - Preview URL (development)
-  - Published URL (live)
-  - Admin route: `<published-url>/auth` → login → `/card/admin` یا `/admin/ai-settings`
-  - User route: `<published-url>/auth` → login → `/user`
-   (یعنی "admin domain" الگ نہیں ہے — same site پر login کے بعد role کے مطابق admin panel کھلتا ہے۔)
-10. **Supabase Redirect URL ہدایات:** آپ کو step-by-step بتاؤں گا کہ نئے URL کو پرانے Supabase dashboard میں کہاں paste کرنا ہے۔
-
----
-
-## آپ سے ایک confirmation چاہیے
-
-`.env` میں موجود Supabase keys **دوسرے Lovable اکاؤنٹ کے Cloud** کی ہیں۔ Best practice ہے کہ یہ keys اِس پروجیکٹ کے Lovable Cloud secrets میں رکھوں (تاکہ git history میں نہ جائیں)، لیکن یہ صرف اسی صورت میں ممکن ہے جب میں اِس پروجیکٹ کا اپنا Lovable Cloud enable کروں — اور وہ ایک **نیا خالی Supabase** بنا دے گا جسے ہمیں استعمال نہیں کرنا۔
-
-اِس لیے میرا plan ہے: **Lovable Cloud enable نہیں کروں گا**، بس zip کی `.env` ویسے ہی استعمال ہوگی (publishable key public-safe ہے، service role key zip میں شامل نہیں)۔ یہ ٹھیک ہے؟
-
-approve کریں تو شروع کرتا ہوں۔
+Please acknowledge these two specific corrections and proceed with Phase 1 based on this updated understanding
 
 &nbsp;
 
-&nbsp;
-
-"Yes, the plan is perfect. Please proceed without enabling a new Lovable Cloud database. Use the existing .env from the zip file as planned so that my existing Supabase data and admin accounts remain intact. Let me know once it's published and share the exact URLs
+اپ کا پلان اچھا ہے لیکن اپ ذرا ایک بار پھر سے اس کو نالائز کر لیں اپ کا جو ڈیزائن سلیکٹ کیا ہے وہ ٹھیک نہیں ہے ٹھیک ہے اپ کائنڈلی کنوا کا بھی چیک کر لیں اور ویڈیوز چیک کر لیں ویڈیو دوبارہ کہیں تو دوبارہ بھی شیئر کر سکتا ہوں لیکن اپ دوبارہ اس ویڈیوز کو دیکھیں جو میں نے شیئر کی ہیں ڈیزائن دیکھ کے اس میں یو ائی کیسا ہے اس کے اندر کیسے کیسے مینیو کام کرتے ہیں اپ نے جل اس لیے ابھی فحال یہ اپروو میں نہیں کر رہا اب دوبارہ سے مجھے بنا کے سینڈ کریں ڈیزائن ای ٹی سی پھر میں اپروو کروں گا
