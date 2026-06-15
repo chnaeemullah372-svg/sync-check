@@ -3,6 +3,7 @@ import { lazy, Suspense, useRef, useState, useEffect } from "react";
 import { z } from "zod";
 import type Konva from "konva";
 import { consumeStagedPsd } from "@/lib/designer/psd-staging";
+import { consumeStagedBlank } from "@/lib/designer/blank-staging";
 import { A4_PORTRAIT, useDesigner, makeId } from "@/lib/designer/store";
 import type { Layer } from "@/lib/designer/types";
 import { useDesignerAutosave } from "@/hooks/use-designer-autosave";
