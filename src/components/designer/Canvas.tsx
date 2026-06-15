@@ -20,10 +20,11 @@ function fitRect(iw: number, ih: number, bw: number, bh: number, mode: ImageLaye
   if (mode === "stretch") return { x: 0, y: 0, w: bw, h: bh };
   const ir = iw / ih;
   const br = bw / bh;
-  if (mode === "fit") {
+  if (mode === "fit" || mode === "contain") {
     if (ir > br) { const h = bw / ir; return { x: 0, y: (bh - h) / 2, w: bw, h }; }
     const w = bh * ir; return { x: (bw - w) / 2, y: 0, w, h: bh };
   }
+  // cover / crop / fill
   if (ir > br) { const w = bh * ir; return { x: (bw - w) / 2, y: 0, w, h: bh }; }
   const h = bw / ir; return { x: 0, y: (bh - h) / 2, w: bw, h };
 }
@@ -34,6 +35,7 @@ interface NodeProps<T extends Layer> {
   onSelect: (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => void;
   onChange: (p: Partial<T>) => void;
   onDragEnd: (newX: number, newY: number) => void;
+  onDblClick?: () => void;
   nodeRef: (n: Konva.Node | null) => void;
 }
 
@@ -61,15 +63,15 @@ function ImageNode({ layer, isSelected, onSelect, onChange, onDragEnd, nodeRef }
     >
       <Rect width={layer.width} height={layer.height}
         fill={img ? "transparent" : "#f1f5f9"}
-        stroke={img ? undefined : isSelected ? "#3b82f6" : "#cbd5e1"}
+        stroke={img ? undefined : isSelected ? "#a855f7" : "#cbd5e1"}
         strokeWidth={1} dash={img ? undefined : [6, 4]} />
       {img && fitted && (<KImage image={img} x={fitted.x} y={fitted.y} width={fitted.w} height={fitted.h} />)}
-      {!img && (<Text text="IMAGE BOX" width={layer.width} height={layer.height} align="center" verticalAlign="middle" fontSize={14} fill="#64748b" listening={false} />)}
+      {!img && (<Text text="IMAGE" width={layer.width} height={layer.height} align="center" verticalAlign="middle" fontSize={14} fill="#64748b" listening={false} />)}
     </Group>
   );
 }
 
-function TextNode({ layer, onSelect, onChange, onDragEnd, nodeRef }: NodeProps<TextLayer>) {
+function TextNode({ layer, onSelect, onChange, onDragEnd, onDblClick, nodeRef }: NodeProps<TextLayer>) {
   const ref = useRef<Konva.Text>(null);
   useEffect(() => { nodeRef(ref.current); return () => nodeRef(null); }, [nodeRef]);
   return (
@@ -80,6 +82,7 @@ function TextNode({ layer, onSelect, onChange, onDragEnd, nodeRef }: NodeProps<T
       fill={layer.fill} align={layer.align} rotation={layer.rotation}
       opacity={layer.opacity} visible={layer.visible} draggable={!layer.locked}
       onClick={onSelect} onTap={onSelect}
+      onDblClick={onDblClick} onDblTap={onDblClick}
       onDragEnd={(e) => onDragEnd(e.target.x(), e.target.y())}
       onTransformEnd={() => {
         const node = ref.current; if (!node) return;
@@ -130,7 +133,7 @@ function LineNode({ layer, onSelect, onChange, onDragEnd, nodeRef }: NodeProps<L
         onChange({ x: node.x(), y: node.y(),
           width: Math.max(5, layer.width * sx), rotation: node.rotation() });
       }}
-      hitStrokeWidth={Math.max(layer.strokeWidth, 8)}
+      hitStrokeWidth={Math.max(layer.strokeWidth, 12)}
     />
   );
 }
@@ -147,18 +150,15 @@ export function DesignerCanvas({ stageRef }: { stageRef: React.MutableRefObject<
   const [fitScale, setFitScale] = useState(1);
   const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const marqueeStart = useRef<{ x: number; y: number } | null>(null);
+  const [editingText, setEditingText] = useState<{ id: string; value: string; x: number; y: number; w: number; h: number; fontSize: number; fontFamily: string; color: string; align: string; rtl?: boolean } | null>(null);
   const scale = fitScale * userZoom;
 
-  // ---- Pinch-to-zoom only the canvas page (not the whole UI) ----
+  // Pinch-to-zoom only the canvas
   const pinchRef = useRef<{ dist: number; baseZoom: number } | null>(null);
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const dist = (t: TouchList) => {
-      const dx = t[0].clientX - t[1].clientX;
-      const dy = t[0].clientY - t[1].clientY;
-      return Math.hypot(dx, dy);
-    };
+    const dist = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
     const onTouchStart = (e: TouchEvent) => {
       if (e.touches.length === 2) {
         pinchRef.current = { dist: dist(e.touches), baseZoom: useDesigner.getState().userZoom };
@@ -168,18 +168,14 @@ export function DesignerCanvas({ stageRef }: { stageRef: React.MutableRefObject<
     const onTouchMove = (e: TouchEvent) => {
       if (e.touches.length === 2 && pinchRef.current) {
         const d = dist(e.touches);
-        const ratio = d / pinchRef.current.dist;
-        setUserZoom(pinchRef.current.baseZoom * ratio);
+        setUserZoom(pinchRef.current.baseZoom * (d / pinchRef.current.dist));
         e.preventDefault();
       }
     };
-    const onTouchEnd = (e: TouchEvent) => {
-      if (e.touches.length < 2) pinchRef.current = null;
-    };
+    const onTouchEnd = (e: TouchEvent) => { if (e.touches.length < 2) pinchRef.current = null; };
     el.addEventListener("touchstart", onTouchStart, { passive: false });
     el.addEventListener("touchmove", onTouchMove, { passive: false });
     el.addEventListener("touchend", onTouchEnd);
-    // iOS Safari gesture events — block default UI zoom
     const blockGesture = (e: Event) => e.preventDefault();
     el.addEventListener("gesturestart", blockGesture);
     el.addEventListener("gesturechange", blockGesture);
@@ -205,7 +201,6 @@ export function DesignerCanvas({ stageRef }: { stageRef: React.MutableRefObject<
     return () => window.removeEventListener("resize", update);
   }, [canvasWidth, canvasHeight]);
 
-  // Attach transformer to selected nodes (multi)
   useEffect(() => {
     const tr = transformerRef.current;
     if (!tr) return;
@@ -215,7 +210,6 @@ export function DesignerCanvas({ stageRef }: { stageRef: React.MutableRefObject<
     tr.getLayer()?.batchDraw();
   }, [selectedIds, layers]);
 
-  // Keyboard nudge
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!selectedId) return;
@@ -228,6 +222,9 @@ export function DesignerCanvas({ stageRef }: { stageRef: React.MutableRefObject<
       else if (e.key === "ArrowDown") { updateLayer(selectedId, { y: layer.y + step }); e.preventDefault(); }
       else if (e.key === "ArrowLeft") { updateLayer(selectedId, { x: layer.x - step }); e.preventDefault(); }
       else if (e.key === "ArrowRight") { updateLayer(selectedId, { x: layer.x + step }); e.preventDefault(); }
+      else if (e.key === "Delete" || e.key === "Backspace") {
+        useDesigner.getState().deleteLayer(selectedId); e.preventDefault();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -238,7 +235,6 @@ export function DesignerCanvas({ stageRef }: { stageRef: React.MutableRefObject<
     else nodeMap.current.delete(id);
   };
 
-  /** Drag-end handler: if layer belongs to a slot, move the whole slot together (Photoshop auto-select group). */
   const handleDragEnd = (layer: Layer) => (newX: number, newY: number) => {
     const dx = newX - layer.x;
     const dy = newY - layer.y;
@@ -256,7 +252,6 @@ export function DesignerCanvas({ stageRef }: { stageRef: React.MutableRefObject<
     if (!stage) return;
     const pos = stage.getPointerPosition();
     if (!pos) return;
-    // Stage scale is already set, convert pointer to stage coords
     const p = { x: pos.x / scale, y: pos.y / scale };
     marqueeStart.current = p;
     setMarquee({ x: p.x, y: p.y, w: 0, h: 0 });
@@ -271,25 +266,18 @@ export function DesignerCanvas({ stageRef }: { stageRef: React.MutableRefObject<
     const p = { x: pos.x / scale, y: pos.y / scale };
     const s = marqueeStart.current;
     setMarquee({
-      x: Math.min(s.x, p.x),
-      y: Math.min(s.y, p.y),
-      w: Math.abs(p.x - s.x),
-      h: Math.abs(p.y - s.y),
+      x: Math.min(s.x, p.x), y: Math.min(s.y, p.y),
+      w: Math.abs(p.x - s.x), h: Math.abs(p.y - s.y),
     });
   };
 
   const handleStageMouseUp = () => {
-    if (!marquee || !marqueeStart.current) {
-      marqueeStart.current = null;
-      setMarquee(null);
-      return;
-    }
+    if (!marquee || !marqueeStart.current) { marqueeStart.current = null; setMarquee(null); return; }
     const m = marquee;
     if (m.w > 5 && m.h > 5) {
       const inside = layers.filter((l) => {
         if (!l.visible) return false;
-        return l.x + l.width >= m.x && l.x <= m.x + m.w
-          && l.y + l.height >= m.y && l.y <= m.y + m.h;
+        return l.x + l.width >= m.x && l.x <= m.x + m.w && l.y + l.height >= m.y && l.y <= m.y + m.h;
       }).map((l) => l.id);
       if (inside.length > 0) selectIds(inside);
     }
@@ -297,9 +285,23 @@ export function DesignerCanvas({ stageRef }: { stageRef: React.MutableRefObject<
     setMarquee(null);
   };
 
+  const beginEditText = (layer: TextLayer) => {
+    setEditingText({
+      id: layer.id, value: layer.text,
+      x: layer.x, y: layer.y, w: layer.width, h: layer.height,
+      fontSize: layer.fontSize, fontFamily: layer.fontFamily,
+      color: layer.fill, align: layer.align, rtl: layer.rtl,
+    });
+  };
+  const commitEditText = () => {
+    if (!editingText) return;
+    updateLayer(editingText.id, { text: editingText.value } as any);
+    setEditingText(null);
+  };
+
   return (
-    <div ref={containerRef} className="flex-1 overflow-auto bg-muted/30 flex items-center justify-center p-4" style={{ touchAction: "pan-x pan-y" }}>
-      <div className="bg-white shadow-2xl" style={{ width: canvasWidth * scale, height: canvasHeight * scale }}>
+    <div ref={containerRef} className="flex-1 overflow-auto bg-muted/40 flex items-center justify-center p-4 relative" style={{ touchAction: "pan-x pan-y" }}>
+      <div className="bg-white shadow-2xl relative" style={{ width: canvasWidth * scale, height: canvasHeight * scale }}>
         <Stage
           ref={(s) => { stageRef.current = s; }}
           width={canvasWidth * scale} height={canvasHeight * scale}
@@ -329,7 +331,7 @@ export function DesignerCanvas({ stageRef }: { stageRef: React.MutableRefObject<
                 onDragEnd: handleDragEnd(layer),
                 nodeRef: setNodeRef(layer.id),
               };
-              if (layer.type === "text") return <TextNode key={layer.id} layer={layer} {...common} onChange={common.onChange as any} />;
+              if (layer.type === "text") return <TextNode key={layer.id} layer={layer} {...common} onChange={common.onChange as any} onDblClick={() => beginEditText(layer)} />;
               if (layer.type === "image") return <ImageNode key={layer.id} layer={layer} {...common} onChange={common.onChange as any} />;
               if (layer.type === "line") return <LineNode key={layer.id} layer={layer} {...common} onChange={common.onChange as any} />;
               return <BoxNode key={layer.id} layer={layer} {...common} onChange={common.onChange as any} />;
@@ -337,6 +339,13 @@ export function DesignerCanvas({ stageRef }: { stageRef: React.MutableRefObject<
             <Transformer
               ref={transformerRef}
               rotateEnabled keepRatio={false} shouldOverdrawWholeArea
+              anchorSize={14}
+              anchorStroke="#a855f7"
+              anchorFill="#ffffff"
+              anchorCornerRadius={7}
+              borderStroke="#a855f7"
+              borderStrokeWidth={2}
+              rotateAnchorOffset={30}
               boundBoxFunc={(oldBox, newBox) => {
                 if (newBox.width < 5 || newBox.height < 5) return oldBox;
                 return newBox;
@@ -345,12 +354,47 @@ export function DesignerCanvas({ stageRef }: { stageRef: React.MutableRefObject<
             {marquee && (
               <Rect
                 x={marquee.x} y={marquee.y} width={marquee.w} height={marquee.h}
-                fill="rgba(59,130,246,0.12)" stroke="#3b82f6" strokeWidth={1} dash={[4, 3]}
+                fill="rgba(168,85,247,0.12)" stroke="#a855f7" strokeWidth={1} dash={[4, 3]}
                 listening={false}
               />
             )}
           </KLayer>
         </Stage>
+
+        {/* Inline text editor overlay */}
+        {editingText && (
+          <textarea
+            value={editingText.value}
+            autoFocus
+            onChange={(e) => setEditingText({ ...editingText, value: e.target.value })}
+            onBlur={commitEditText}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") { commitEditText(); }
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { commitEditText(); }
+            }}
+            style={{
+              position: "absolute",
+              left: editingText.x * scale,
+              top: editingText.y * scale,
+              width: editingText.w * scale,
+              minHeight: editingText.h * scale,
+              fontSize: editingText.fontSize * scale,
+              fontFamily: editingText.fontFamily,
+              color: editingText.color,
+              textAlign: editingText.align as any,
+              direction: editingText.rtl ? "rtl" : "ltr",
+              background: "rgba(255,255,255,0.95)",
+              border: "2px solid #a855f7",
+              outline: "none",
+              padding: 2,
+              margin: 0,
+              resize: "none",
+              lineHeight: 1.2,
+              boxSizing: "border-box",
+              zIndex: 30,
+            }}
+          />
+        )}
       </div>
     </div>
   );
