@@ -440,7 +440,8 @@ function DesignerPage() {
           toast.error("PSD data not found");
           return;
         }
-        const layers: Layer[] = (p.layers || []).map((l: any) => {
+        const importedLayers = (p.layers || []) as ImportedPsdLayer[];
+        const layers: Layer[] = importedLayers.map((l) => {
           if (l.type === "text") {
             return {
               id: l.id || makeId(),
@@ -489,8 +490,8 @@ function DesignerPage() {
         });
         st.setSize("custom", p.width, p.height);
         toast.success(`PSD imported — ${layers.length} layers`);
-      } catch (e: any) {
-        toast.error(`PSD load failed: ${e?.message || e}`);
+      } catch (e: unknown) {
+        toast.error(`PSD load failed: ${e instanceof Error ? e.message : String(e)}`);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -514,7 +515,7 @@ function DesignerPage() {
       try {
         const { template, snapshot } = await loadTemplateFn({ data: { templateId: tid } });
         if (cancelled || !template) return;
-        const snap: any = snapshot || {};
+        const snap = (snapshot || {}) as DesignerSnapshot;
         let baseState = {
           background: snap.background ?? {
             src: template.background_url ?? null,
@@ -530,7 +531,7 @@ function DesignerPage() {
           try {
             const raw = localStorage.getItem(`designer.userEdit.${entryId}`);
             if (raw) {
-              const p = JSON.parse(raw);
+              const p = JSON.parse(raw) as DesignerSnapshot;
               baseState = {
                 background: p.background ?? baseState.background,
                 canvasWidth: p.canvasWidth ?? baseState.canvasWidth,
@@ -553,8 +554,8 @@ function DesignerPage() {
           /* ignore */
         }
         if (!userMode) toast.success(`Loaded "${template.name}"`);
-      } catch (e: any) {
-        toast.error(`Template load failed: ${e?.message || e}`);
+      } catch (e: unknown) {
+        toast.error(`Template load failed: ${e instanceof Error ? e.message : String(e)}`);
       }
     })();
     return () => {
