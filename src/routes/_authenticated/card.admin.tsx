@@ -80,7 +80,7 @@ const INK = "#1a1a1a";
 
 function AdminDashboard() {
   const router = useRouter();
-  const { user, role, signOut } = useAuth();
+  const { user, role, loading, signOut } = useAuth();
   const [tab, setTab] = useState<Tab>("overview");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [newTplOpen, setNewTplOpen] = useState(false);
