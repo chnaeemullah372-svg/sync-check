@@ -83,15 +83,28 @@ const OPTIONS: {
 
 const SYSTEM_FONTS = new Set([
   "Arial", "Arial Black", "Helvetica", "Times New Roman", "Georgia", "Courier New", "Verdana", "Tahoma", "Trebuchet MS", "Impact",
+  "Calibri", "Cambria", "Candara", "Century Gothic", "Franklin Gothic Medium", "Garamond", "Gill Sans", "Palatino", "Segoe UI",
 ]);
+const NON_WEB_SAFE_LIBRARY_FONTS = new Set(["Jameel Noori Nastaleeq", "Alvi Nastaleeq"]);
 const FONT_ALIASES: Record<string, string> = {
   ArialMT: "Arial",
   ArialBoldMT: "Arial",
+  ArialItalicMT: "Arial",
+  ArialBoldItalicMT: "Arial",
+  HelveticaNeueLTStdRoman: "Helvetica",
+  HelveticaNeueLTStdBd: "Helvetica",
   HelveticaNeue: "Helvetica",
+  CalibriRegular: "Calibri",
+  CalibriBold: "Calibri",
   TimesNewRomanPSMT: "Times New Roman",
   TimesNewRomanPSBoldMT: "Times New Roman",
+  TimesNewRomanPSItalicMT: "Times New Roman",
+  TimesNewRomanPSBoldItalicMT: "Times New Roman",
   CourierNewPSMT: "Courier New",
   MyriadProRegular: "Myriad Pro",
+  MyriadProBold: "Myriad Pro",
+  NotoNastaliqUrdu: "Noto Nastaliq Urdu",
+  NotoNaskhArabic: "Noto Naskh Arabic",
   JameelNooriNastaleeq: "Jameel Noori Nastaleeq",
   AlviNastaleeq: "Alvi Nastaleeq",
 };
@@ -108,7 +121,45 @@ function normalizePsdFont(raw: unknown) {
 }
 
 function isKnownDesignerFont(fontFamily: string) {
-  return SYSTEM_FONTS.has(fontFamily) || FONT_LIBRARY.some((font) => font.family === fontFamily);
+  return SYSTEM_FONTS.has(fontFamily) || FONT_LIBRARY.some((font) => font.family === fontFamily && !NON_WEB_SAFE_LIBRARY_FONTS.has(font.family));
+}
+
+function fallbackFontFor(fontFamily: string) {
+  const compact = fontFamily.toLowerCase().replace(/[\s_-]/g, "");
+  if (/nastaliq|nastaleeq|urdu|noori|alvi|jameel|faiz/.test(compact)) return "Noto Nastaliq Urdu";
+  if (/arabic|naskh|kufi|ruqaa|amiri|scheherazade|tajawal|cairo/.test(compact)) return "Noto Naskh Arabic";
+  if (/mono|courier|code|console/.test(compact)) return "Courier New";
+  if (/serif|times|garamond|georgia|baskerville|cambria/.test(compact)) return "Times New Roman";
+  if (/condensed|narrow/.test(compact)) return "Roboto Condensed";
+  return "Arial";
+}
+
+function resolvePsdFont(raw: unknown) {
+  const requested = normalizePsdFont(raw);
+  if (isKnownDesignerFont(requested)) return { family: requested, requested, missing: false };
+  return { family: fallbackFontFor(requested), requested, missing: true };
+}
+
+function getPsdFontSize(style: any, boundsHeight: number) {
+  const raw = Number(style?.fontSize?.value ?? style?.fontSize ?? style?.size?.value ?? style?.size);
+  if (Number.isFinite(raw) && raw > 0) return Math.max(1, Math.min(500, raw));
+  return Math.max(8, Math.min(200, boundsHeight * 0.72));
+}
+
+function getPsdRotation(textInfo: any) {
+  const t = Array.isArray(textInfo?.transform) ? textInfo.transform : null;
+  if (!t) return 0;
+  const a = Number(t[0]) || 1;
+  const b = Number(t[1]) || 0;
+  const deg = Math.atan2(b, a) * (180 / Math.PI);
+  return Number.isFinite(deg) ? deg : 0;
+}
+
+function getPsdFontStyle(style: any, layerName: string) {
+  const family = `${style?.font?.name || style?.font?.family || ""} ${style?.fontStyle || ""} ${layerName || ""}`.toLowerCase();
+  const bold = /bold|black|heavy|semibold|demi/.test(family);
+  const italic = /italic|oblique/.test(family);
+  return [bold ? "bold" : "", italic ? "italic" : ""].filter(Boolean).join(" ") || "normal";
 }
 
 export function NewTemplateModal({ open, onOpenChange }: Props) {
