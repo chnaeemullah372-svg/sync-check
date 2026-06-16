@@ -123,13 +123,19 @@ function EntryEditor() {
     return labels;
   }, [snapshot]);
   const slotCount = useMemo(() => deriveMemberCount(snapshot?.layers), [snapshot]);
+  const savedMemberCount = useMemo(() => {
+    return (data?.members ?? [])
+      .map((m: any) => Number(m.member_no))
+      .filter((n: number) => Number.isFinite(n) && n > 0)
+      .reduce((a: number, b: number) => Math.max(a, b), 0);
+  }, [data]);
   const memberCount = useMemo(() => {
     const named = Object.keys(snapshot?.memberNames ?? {})
       .map(Number)
       .filter((n) => Number.isFinite(n) && n > 0)
       .reduce((a, b) => Math.max(a, b), 0);
-    return Math.max(slotCount, named);
-  }, [snapshot, slotCount]);
+    return Math.max(slotCount, named, savedMemberCount);
+  }, [snapshot, slotCount, savedMemberCount]);
 
   // form state — keyed by member number
   const [form, setForm] = useState<FormByMember>({});
