@@ -50,7 +50,9 @@ export function inferMembersPerPage(snapshot?: any, saved?: number | null) {
 
 export function withMemberTemplateMeta(snapshot: any, templateName?: string | null, membersPerPage?: number | null) {
   const memberCount = inferTemplateMemberCount({ snapshot, templateName });
-  const perPage = Math.min(DEFAULT_MEMBERS_PER_PAGE, inferMembersPerPage(snapshot, membersPerPage));
+  const slotCount = maxSlotIndex(snapshot?.layers);
+  const requestedPerPage = inferMembersPerPage(snapshot, membersPerPage);
+  const perPage = Math.min(DEFAULT_MEMBERS_PER_PAGE, slotCount === 1 && memberCount > 1 && requestedPerPage <= 1 ? DEFAULT_MEMBERS_PER_PAGE : requestedPerPage);
   const memberNames = { ...(snapshot?.memberNames ?? {}) } as Record<number, string>;
   for (let i = 1; i <= memberCount; i++) memberNames[i] = memberNames[i] ?? `Member ${i}`;
   return { ...(snapshot ?? {}), memberCount, membersPerPage: perPage, memberNames };
@@ -59,12 +61,15 @@ export function withMemberTemplateMeta(snapshot: any, templateName?: string | nu
 export function expandSingleSlotMemberLayers(snapshot: any, totalMembers: number, membersPerPage = DEFAULT_MEMBERS_PER_PAGE) {
   const layers = (snapshot?.layers ?? []) as Layer[];
   const slotCount = maxSlotIndex(layers);
-  const perPage = Math.min(DEFAULT_MEMBERS_PER_PAGE, clampMemberCount(membersPerPage));
+  const total = clampMemberCount(totalMembers);
+  const requestedPerPage = clampMemberCount(membersPerPage);
+  const perPage = Math.min(DEFAULT_MEMBERS_PER_PAGE, slotCount === 1 && total > 1 && requestedPerPage <= 1 ? DEFAULT_MEMBERS_PER_PAGE : requestedPerPage);
   const targetSlots = Math.min(perPage, clampMemberCount(totalMembers));
-  if (slotCount !== 1 || targetSlots <= 1) return withMemberTemplateMeta(snapshot, undefined, perPage);
+  const baseSnapshot = { ...(snapshot ?? {}), memberCount: total, membersPerPage: perPage };
+  if (slotCount !== 1 || targetSlots <= 1) return withMemberTemplateMeta(baseSnapshot, undefined, perPage);
 
   const slotLayers = layers.filter((layer) => layer.slotIndex === 1);
-  if (slotLayers.length === 0) return withMemberTemplateMeta(snapshot, undefined, perPage);
+  if (slotLayers.length === 0) return withMemberTemplateMeta(baseSnapshot, undefined, perPage);
 
   const minY = Math.min(...slotLayers.map((layer) => layer.y));
   const maxY = Math.max(...slotLayers.map((layer) => layer.y + layer.height));
@@ -90,5 +95,5 @@ export function expandSingleSlotMemberLayers(snapshot: any, totalMembers: number
     }
   }
 
-  return withMemberTemplateMeta({ ...(snapshot ?? {}), layers: expanded }, undefined, perPage);
+  return withMemberTemplateMeta({ ...baseSnapshot, layers: expanded }, undefined, perPage);
 }
