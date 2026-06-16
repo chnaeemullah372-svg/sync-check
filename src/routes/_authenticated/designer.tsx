@@ -34,6 +34,33 @@ const DesignerCanvas = lazy(() =>
 
 const CARD = { w: 638, h: 1012 };
 
+type ImportedPsdLayer = {
+  id?: string;
+  name?: string;
+  type?: string;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  rotation?: number;
+  src?: string;
+  text?: string;
+  fontSize?: number;
+  fontFamily?: string;
+  fontStyle?: string;
+  fill?: string;
+  align?: "left" | "center" | "right";
+  rtl?: boolean;
+};
+
+type DesignerSnapshot = {
+  background?: { src: string | null; width: number; height: number };
+  canvasWidth?: number;
+  canvasHeight?: number;
+  layers?: Layer[];
+  memberNames?: Record<number, string>;
+};
+
 export const Route = createFileRoute("/_authenticated/designer")({
   validateSearch: (search) =>
     z
