@@ -141,10 +141,16 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
 
 
   const handlePsd = async (file: File) => {
+    if (!file.name.toLowerCase().endsWith(".psd")) {
+      toast.error("Please select a Photoshop .psd file. For JPG/PNG use Blank Template.");
+      return;
+    }
     setParsing(true);
     try {
       const { readPsd } = await import("ag-psd");
-      const buf = await file.arrayBuffer();
+      const buf = await file.arrayBuffer().catch(() => {
+        throw new Error("File permission blocked. Move the PSD to Downloads/Files, then select it again.");
+      });
       const psd = readPsd(buf, { skipCompositeImageData: false });
 
       const W = psd.width;

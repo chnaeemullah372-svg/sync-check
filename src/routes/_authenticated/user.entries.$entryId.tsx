@@ -44,6 +44,7 @@ import {
 } from "@/lib/export/render";
 import type { Layer, TextLayer, ImageLayer } from "@/lib/designer/types";
 import { UserShell } from "@/components/user/UserShell";
+import { expandSingleSlotMemberLayers, inferMembersPerPage, inferTemplateMemberCount, maxSlotIndex } from "@/lib/designer/member-template";
 
 const PreviewCanvas = lazy(() =>
   import("@/components/entry/PreviewCanvas").then((m) => ({ default: m.PreviewCanvas })),
@@ -72,15 +73,6 @@ function deriveFields(layers: Layer[] | undefined): { textKeys: string[]; imageK
   return { textKeys: [...t], imageKeys: [...i] };
 }
 
-function deriveMemberCount(layers: Layer[] | undefined): number {
-  const slots = new Set<number>();
-  for (const l of layers ?? []) {
-    if (l.slotIndex && l.slotIndex > 0) slots.add(l.slotIndex);
-  }
-  if (slots.size === 0) return 1;
-  return Math.max(...slots);
-}
-
 function EntryEditor() {
   const { entryId } = Route.useParams();
   const navigate = useNavigate();
@@ -105,9 +97,22 @@ function EntryEditor() {
     queryFn: () => getFn({ data: { entryId } }),
   });
 
-  const snapshot = data?.snapshot as
-    | { background: any; canvasWidth: number; canvasHeight: number; layers: Layer[]; memberNames?: Record<number, string> }
+  const savedMemberCount = useMemo(() => {
+    return (data?.members ?? [])
+      .map((m: any) => Number(m.member_no))
+      .filter((n: number) => Number.isFinite(n) && n > 0)
+      .reduce((a: number, b: number) => Math.max(a, b), 0);
+  }, [data]);
+  const rawSnapshot = data?.snapshot as
+    | { background: any; canvasWidth: number; canvasHeight: number; layers: Layer[]; memberNames?: Record<number, string>; memberCount?: number; membersPerPage?: number }
     | null;
+  const tplForMeta: any = data?.entry?.templates;
+  const snapshot = useMemo(() => {
+    if (!rawSnapshot) return null;
+    const total = inferTemplateMemberCount({ snapshot: rawSnapshot, templateName: tplForMeta?.name, savedMemberCount });
+    const perPage = inferMembersPerPage(rawSnapshot, tplForMeta?.members_per_page);
+    return expandSingleSlotMemberLayers(rawSnapshot, total, perPage) as typeof rawSnapshot;
+  }, [rawSnapshot, savedMemberCount, tplForMeta?.name, tplForMeta?.members_per_page]);
 
   const { textKeys, imageKeys } = useMemo(
     () => deriveFields(snapshot?.layers),
@@ -122,20 +127,10 @@ function EntryEditor() {
     }
     return labels;
   }, [snapshot]);
-  const slotCount = useMemo(() => deriveMemberCount(snapshot?.layers), [snapshot]);
-  const savedMemberCount = useMemo(() => {
-    return (data?.members ?? [])
-      .map((m: any) => Number(m.member_no))
-      .filter((n: number) => Number.isFinite(n) && n > 0)
-      .reduce((a: number, b: number) => Math.max(a, b), 0);
-  }, [data]);
+  const slotCount = useMemo(() => Math.max(1, maxSlotIndex(snapshot?.layers)), [snapshot]);
   const memberCount = useMemo(() => {
-    const named = Object.keys(snapshot?.memberNames ?? {})
-      .map(Number)
-      .filter((n) => Number.isFinite(n) && n > 0)
-      .reduce((a, b) => Math.max(a, b), 0);
-    return Math.max(slotCount, named, savedMemberCount);
-  }, [snapshot, slotCount, savedMemberCount]);
+    return inferTemplateMemberCount({ snapshot, templateName: tplForMeta?.name, savedMemberCount });
+  }, [snapshot, tplForMeta?.name, savedMemberCount]);
 
   // form state — keyed by member number
   const [form, setForm] = useState<FormByMember>({});

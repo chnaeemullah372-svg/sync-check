@@ -8,6 +8,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { saveTemplate } from "@/lib/api/templates.functions";
 import { useQueryClient } from "@tanstack/react-query";
 import { clearDesignerAutosave } from "@/hooks/use-designer-autosave";
+import { withMemberTemplateMeta } from "@/lib/designer/member-template";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
   DropdownMenuSeparator, DropdownMenuLabel,
@@ -46,6 +47,13 @@ export function CanvaTopBar({ userMode, entryId }: Props) {
     if (name === null) return;
     const finalName = name.trim() || defaultName;
     const state = useDesigner.getState();
+    const snapshot = withMemberTemplateMeta({
+      layers: state.layers,
+      memberNames: state.memberNames,
+      background: state.background,
+      canvasWidth: state.canvasWidth,
+      canvasHeight: state.canvasHeight,
+    }, finalName);
     try {
       setSaving(true);
       const res = await saveTemplateFn({
@@ -56,7 +64,8 @@ export function CanvaTopBar({ userMode, entryId }: Props) {
           width: state.canvasWidth,
           height: state.canvasHeight,
           backgroundUrl: state.background?.src ?? null,
-          snapshot: { layers: state.layers, memberNames: state.memberNames, background: state.background },
+          snapshot,
+          membersPerPage: snapshot.membersPerPage,
           aiInstructions: localStorage.getItem("designer.aiInstructions") || null,
         },
       });

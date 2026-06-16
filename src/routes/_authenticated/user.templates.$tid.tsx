@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { ArrowLeft, Plus, FileText } from "lucide-react";
 import { createEntry, listMyEntries } from "@/lib/api/entries.functions";
 import { toast } from "sonner";
 import { UserShell } from "@/components/user/UserShell";
+import { inferTemplateMemberCount } from "@/lib/designer/member-template";
 
 export const Route = createFileRoute("/_authenticated/user/templates/$tid")({
   head: () => ({ meta: [{ title: "Template" }] }),
@@ -44,6 +45,11 @@ function TemplateEntries() {
       return data;
     },
   });
+
+  useEffect(() => {
+    if (!tpl) return;
+    setMemberCount(inferTemplateMemberCount({ templateName: tpl.name }));
+  }, [tpl]);
 
   const entriesFn = useServerFn(listMyEntries);
   const { data: entries, refetch } = useQuery({

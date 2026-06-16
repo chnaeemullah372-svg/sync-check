@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { inferTemplateMemberCount, withMemberTemplateMeta } from "@/lib/designer/member-template";
 
 /** ---------- list assigned templates ---------- */
 export const listMyTemplates = createServerFn({ method: "GET" })
@@ -72,11 +73,11 @@ export const getEntry = createServerFn({ method: "POST" })
     let snapshot: any = snap?.objects ?? null;
     if (snapshot && typeof snapshot === "object") {
       const tpl: any = (entry as any).templates ?? {};
-      snapshot = {
+      snapshot = withMemberTemplateMeta({
         ...snapshot,
         canvasWidth: Number(snapshot.canvasWidth ?? tpl.width ?? 794) || 794,
         canvasHeight: Number(snapshot.canvasHeight ?? tpl.height ?? 1123) || 1123,
-      };
+      }, tpl.name, tpl.members_per_page);
     }
     return { entry, snapshot, members: members ?? [], files: files ?? [] };
   });
@@ -95,22 +96,34 @@ export const createEntry = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!assigned) throw new Error("Forbidden: template not assigned to you");
 
+    const { data: tpl } = await supabase
+      .from("templates")
+      .select("name, members_per_page")
+      .eq("id", data.templateId)
+      .single();
+
+    const { data: snap } = await supabase
+      .from("template_objects")
+      .select("objects")
+      .eq("template_id", data.templateId)
+      .maybeSingle();
+    const snapshot = snap?.objects;
+    const defaultCount = inferTemplateMemberCount({ snapshot, templateName: (tpl as any)?.name });
+
     const { data: ins, error } = await supabase
       .from("entries")
       .insert({ template_id: data.templateId, user_id: userId, status: "draft" })
       .select("id, entry_no")
       .single();
     if (error) throw new Error(error.message);
-    const memberCount = Math.max(1, Math.min(20, data.memberCount ?? 1));
-    if (memberCount > 1) {
-      const rows = Array.from({ length: memberCount }, (_, i) => ({
-        entry_id: ins.id,
-        member_no: i + 1,
-        data: {},
-      }));
-      const { error: memberError } = await supabase.from("entry_members").insert(rows);
-      if (memberError) throw new Error(memberError.message);
-    }
+    const memberCount = Math.max(1, Math.min(20, data.memberCount ?? defaultCount));
+    const rows = Array.from({ length: memberCount }, (_, i) => ({
+      entry_id: ins.id,
+      member_no: i + 1,
+      data: {},
+    }));
+    const { error: memberError } = await supabase.from("entry_members").insert(rows);
+    if (memberError) throw new Error(memberError.message);
     return ins;
   });
 
