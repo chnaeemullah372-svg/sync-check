@@ -111,7 +111,15 @@ type PsdTextStyle = {
   fontSize?: unknown | PsdSizedValue;
   size?: unknown | PsdSizedValue;
   fontStyle?: unknown;
-  fillColor?: { r?: number; g?: number; b?: number; c?: number; m?: number; y?: number; k?: number };
+  fillColor?: {
+    r?: number;
+    g?: number;
+    b?: number;
+    c?: number;
+    m?: number;
+    y?: number;
+    k?: number;
+  };
 };
 type PsdParagraphStyle = { justification?: unknown; align?: unknown };
 type PsdTextInfo = {
