@@ -400,7 +400,7 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
           }
         }
       };
-      walk(psd.children);
+      walk(psd.children as unknown as PsdNode[] | undefined);
 
       // Stage in memory — zero storage limits, survives the navigation
       setStagedPsd({ width: W, height: H, background: bgSrc, layers: out });
@@ -418,9 +418,9 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
       } else {
         toast.success(`Imported ${out.length} layers from PSD`);
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      toast.error(`PSD import failed: ${e?.message || e}`);
+      toast.error(`PSD import failed: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setParsing(false);
     }
