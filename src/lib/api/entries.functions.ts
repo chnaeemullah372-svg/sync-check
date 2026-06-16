@@ -84,7 +84,7 @@ export const getEntry = createServerFn({ method: "POST" })
 /** ---------- create entry ---------- */
 export const createEntry = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ templateId: z.string().uuid() }))
+  .inputValidator(z.object({ templateId: z.string().uuid(), memberCount: z.number().int().min(1).max(20).optional() }))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: assigned } = await supabase
@@ -101,6 +101,16 @@ export const createEntry = createServerFn({ method: "POST" })
       .select("id, entry_no")
       .single();
     if (error) throw new Error(error.message);
+    const memberCount = Math.max(1, Math.min(20, data.memberCount ?? 1));
+    if (memberCount > 1) {
+      const rows = Array.from({ length: memberCount }, (_, i) => ({
+        entry_id: ins.id,
+        member_no: i + 1,
+        data: {},
+      }));
+      const { error: memberError } = await supabase.from("entry_members").insert(rows);
+      if (memberError) throw new Error(memberError.message);
+    }
     return ins;
   });
 

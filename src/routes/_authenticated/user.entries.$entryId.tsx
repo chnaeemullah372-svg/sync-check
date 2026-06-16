@@ -122,7 +122,20 @@ function EntryEditor() {
     }
     return labels;
   }, [snapshot]);
-  const memberCount = useMemo(() => deriveMemberCount(snapshot?.layers), [snapshot]);
+  const slotCount = useMemo(() => deriveMemberCount(snapshot?.layers), [snapshot]);
+  const savedMemberCount = useMemo(() => {
+    return (data?.members ?? [])
+      .map((m: any) => Number(m.member_no))
+      .filter((n: number) => Number.isFinite(n) && n > 0)
+      .reduce((a: number, b: number) => Math.max(a, b), 0);
+  }, [data]);
+  const memberCount = useMemo(() => {
+    const named = Object.keys(snapshot?.memberNames ?? {})
+      .map(Number)
+      .filter((n) => Number.isFinite(n) && n > 0)
+      .reduce((a, b) => Math.max(a, b), 0);
+    return Math.max(slotCount, named, savedMemberCount);
+  }, [snapshot, slotCount, savedMemberCount]);
 
   // form state — keyed by member number
   const [form, setForm] = useState<FormByMember>({});
@@ -448,12 +461,12 @@ function EntryEditor() {
     try {
       const cw = Math.round(Number(snapshot.canvasWidth) || 794);
       const ch = Math.round(Number(snapshot.canvasHeight) || 1123);
-      const slotsPerPageLocal = Math.max(1, memberCount);
+      const slotsPerPageLocal = Math.max(1, Math.min(15, slotCount));
       const maxFilled = Object.keys(form)
         .map(Number)
         .filter((n) => !Number.isNaN(n) && Object.values(form[n] ?? {}).some((v) => String(v ?? "").trim() !== ""))
         .reduce((a, b) => Math.max(a, b), 0);
-      const pageCountLocal = Math.max(1, Math.ceil(Math.max(slotsPerPageLocal, maxFilled) / slotsPerPageLocal));
+      const pageCountLocal = Math.max(1, Math.ceil(Math.max(memberCount, maxFilled) / slotsPerPageLocal));
       console.info("[export] pdf start", { entryId, canvasWidth: cw, canvasHeight: ch, pages: pageCountLocal });
       const pages: { dataUrl: string; widthPx: number; heightPx: number }[] = [];
       for (let p = 1; p <= pageCountLocal; p++) {
@@ -481,12 +494,12 @@ function EntryEditor() {
     setAdjustMode(false);
     setBusy("jpg");
     try {
-      const slotsPerPageLocal = Math.max(1, memberCount);
+      const slotsPerPageLocal = Math.max(1, Math.min(15, slotCount));
       const maxFilled = Object.keys(form)
         .map(Number)
         .filter((n) => !Number.isNaN(n) && Object.values(form[n] ?? {}).some((v) => String(v ?? "").trim() !== ""))
         .reduce((a, b) => Math.max(a, b), 0);
-      const pageCountLocal = Math.max(1, Math.ceil(Math.max(slotsPerPageLocal, maxFilled) / slotsPerPageLocal));
+      const pageCountLocal = Math.max(1, Math.ceil(Math.max(memberCount, maxFilled) / slotsPerPageLocal));
       let count = 0;
       for (let p = 1; p <= pageCountLocal; p++) {
         const stage = await waitForPreviewStage(p);
@@ -543,14 +556,14 @@ function EntryEditor() {
   }
 
   const tpl: any = data.entry?.templates;
-  const slotsPerPage = Math.max(1, memberCount);
+  const slotsPerPage = Math.max(1, Math.min(15, slotCount));
   const maxFilledMember = Object.keys(form)
     .map(Number)
     .filter((n) => !Number.isNaN(n) && Object.values(form[n] ?? {}).some((v) => String(v ?? "").trim() !== ""))
     .reduce((a, b) => Math.max(a, b), 0);
-  const totalMembers = Math.max(slotsPerPage, maxFilledMember);
+  const totalMembers = Math.max(memberCount, maxFilledMember);
   const pageCount = Math.max(1, Math.ceil(totalMembers / slotsPerPage));
-  const memberList = Array.from({ length: pageCount * slotsPerPage }, (_, i) => i + 1);
+  const memberList = Array.from({ length: totalMembers }, (_, i) => i + 1);
 
 
   return (

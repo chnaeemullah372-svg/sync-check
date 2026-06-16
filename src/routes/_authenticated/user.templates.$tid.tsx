@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -29,6 +30,7 @@ export const Route = createFileRoute("/_authenticated/user/templates/$tid")({
 function TemplateEntries() {
   const { tid } = Route.useParams();
   const navigate = useNavigate();
+  const [memberCount, setMemberCount] = useState(1);
 
   const { data: tpl } = useQuery({
     queryKey: ["template", tid],
@@ -51,7 +53,7 @@ function TemplateEntries() {
 
   const createFn = useServerFn(createEntry);
   const create = useMutation({
-    mutationFn: () => createFn({ data: { templateId: tid } }),
+    mutationFn: (count: number) => createFn({ data: { templateId: tid, memberCount: count } }),
     onSuccess: (res) => {
       toast.success(`Entry #${res.entry_no} created`);
       navigate({ to: "/user/entries/$entryId", params: { entryId: res.id } });
@@ -77,13 +79,26 @@ function TemplateEntries() {
             </h1>
             <p className="mt-1 text-sm text-user-muted">Template Code: {tpl?.id?.slice(0, 8)} · Size: {tpl?.width}×{tpl?.height}</p>
           </div>
-          <Button
-            disabled={create.isPending}
-            onClick={() => create.mutate()}
-            className="h-10 rounded-md bg-user-sidebar-active px-4 text-xs font-bold uppercase tracking-wider text-user-sidebar-foreground shadow-sm hover:bg-user-sidebar-active/90"
-          >
-            <Plus className="h-4 w-4" /> Create New Entry
-          </Button>
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex items-center gap-2 rounded-md border border-user-border bg-user-surface px-2 py-1">
+              <span className="text-[10px] font-black uppercase tracking-widest text-user-muted">Members</span>
+              <input
+                type="number"
+                min={1}
+                max={20}
+                value={memberCount}
+                onChange={(e) => setMemberCount(Math.max(1, Math.min(20, parseInt(e.target.value, 10) || 1)))}
+                className="h-8 w-16 rounded border border-user-border bg-user-page px-2 text-center text-sm font-bold text-user-ink"
+              />
+            </div>
+            <Button
+              disabled={create.isPending}
+              onClick={() => create.mutate(memberCount)}
+              className="h-10 rounded-md bg-user-sidebar-active px-4 text-xs font-bold uppercase tracking-wider text-user-sidebar-foreground shadow-sm hover:bg-user-sidebar-active/90"
+            >
+              <Plus className="h-4 w-4" /> Create New Entry
+            </Button>
+          </div>
         </div>
 
         <section>

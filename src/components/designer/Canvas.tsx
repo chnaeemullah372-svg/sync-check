@@ -41,9 +41,10 @@ interface NodeProps<T extends Layer> {
   onDragEnd: (newX: number, newY: number) => void;
   onDblClick?: () => void;
   nodeRef: (n: Konva.Node | null) => void;
+  passive?: boolean;
 }
 
-function ImageNode({ layer, isSelected, onSelect, onChange, onDragEnd, nodeRef }: NodeProps<ImageLayer>) {
+function ImageNode({ layer, isSelected, onSelect, onChange, onDragEnd, nodeRef, passive }: NodeProps<ImageLayer>) {
   const img = useHTMLImage(layer.src);
   const groupRef = useRef<Konva.Group>(null);
   useEffect(() => { nodeRef(groupRef.current); return () => nodeRef(null); }, [nodeRef]);
@@ -53,8 +54,8 @@ function ImageNode({ layer, isSelected, onSelect, onChange, onDragEnd, nodeRef }
       ref={groupRef}
       x={layer.x} y={layer.y} width={layer.width} height={layer.height}
       rotation={layer.rotation} opacity={layer.opacity} visible={layer.visible}
-      listening={!layer.locked}
-      draggable={!layer.locked} onClick={onSelect} onTap={onSelect}
+      listening={!layer.locked && !passive}
+      draggable={!layer.locked && !passive} onClick={onSelect} onTap={onSelect}
       onDragEnd={(e) => onDragEnd(e.target.x(), e.target.y())}
       onTransformEnd={() => {
         const node = groupRef.current; if (!node) return;
@@ -147,6 +148,14 @@ function LineNode({ layer, onSelect, onChange, onDragEnd, nodeRef }: NodeProps<L
   );
 }
 
+function isPageBackgroundLayer(layer: Layer, canvasWidth: number, canvasHeight: number) {
+  if (layer.type !== "image" || layer.slotIndex) return false;
+  const name = layer.name.toLowerCase();
+  const namedBackground = /background|template|base|frc|bg\b/.test(name);
+  const coversPage = layer.x <= 3 && layer.y <= 3 && layer.width >= canvasWidth * 0.96 && layer.height >= canvasHeight * 0.96;
+  return namedBackground || coversPage;
+}
+
 export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.MutableRefObject<Konva.Stage | null>; onOpenMore?: () => void }) {
   const {
     background, canvasWidth, canvasHeight, layers,
@@ -164,6 +173,7 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
   const marqueeStart = useRef<{ x: number; y: number } | null>(null);
   const [editingText, setEditingText] = useState<{ id: string; value: string; x: number; y: number; w: number; h: number; fontSize: number; fontFamily: string; color: string; align: string; rtl?: boolean } | null>(null);
   const scale = fitScale * userZoom;
+  const displayLayers = [...layers].sort((a, b) => Number(isPageBackgroundLayer(b, canvasWidth, canvasHeight)) - Number(isPageBackgroundLayer(a, canvasWidth, canvasHeight)));
 
   // Pinch-to-zoom only the canvas
   const pinchRef = useRef<{ dist: number; baseZoom: number } | null>(null);
@@ -390,8 +400,9 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
             {bgImg && (<KImage image={bgImg} x={0} y={0} width={canvasWidth} height={canvasHeight} />)}
           </KLayer>
           <KLayer>
-            {layers.map((layer) => {
+            {displayLayers.map((layer) => {
               const isSel = selectedIds.includes(layer.id);
+              const passiveBackground = isPageBackgroundLayer(layer, canvasWidth, canvasHeight);
               const onSelect = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
                 // Fill tool: tap layer → fill with toolColor
                 if (activeTool === "fill") {
@@ -415,6 +426,7 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
                 onChange: (p: Partial<Layer>) => updateLayer(layer.id, p),
                 onDragEnd: handleDragEnd(layer),
                 nodeRef: setNodeRef(layer.id),
+                passive: passiveBackground,
               };
               if (layer.type === "text") return <TextNode key={layer.id} layer={layer} {...common} onChange={common.onChange as any} onDblClick={() => beginEditText(layer)} />;
               if (layer.type === "image") return <ImageNode key={layer.id} layer={layer} {...common} onChange={common.onChange as any} />;

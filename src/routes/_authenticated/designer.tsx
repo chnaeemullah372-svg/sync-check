@@ -44,13 +44,21 @@ export const Route = createFileRoute("/_authenticated/designer")({
 
 function memberStarterLayers(count: number = 1): Layer[] {
   const layers: Layer[] = [];
-  for (let i = 1; i <= count; i++) {
-    const yOff = (i - 1) * 200;
+  const slotCount = Math.min(count, 15);
+  for (let i = 1; i <= slotCount; i++) {
+    const pageSlot = (i - 1) % 15;
+    const col = pageSlot % 3;
+    const row = Math.floor(pageSlot / 3);
+    const x = 46 + col * 250;
+    const y = 64 + row * 198;
     layers.push(
-      { id: makeId(), name: `Photo ${i}`, type: "image", x: 60, y: 80 + yOff, width: 100, height: 125, rotation: 0, opacity: 1, visible: true, locked: false, src: null, fit: "crop", subtype: "photo", fieldKey: "photo", slotIndex: i },
-      { id: makeId(), name: `Name ${i}`, type: "text", x: 180, y: 90 + yOff, width: 280, height: 28, rotation: 0, opacity: 1, visible: true, locked: false, text: "Name", fontSize: 18, fontFamily: "Inter", fontStyle: "normal", fill: "#111827", align: "left", fieldKey: "name", slotIndex: i },
-      { id: makeId(), name: `Father Name ${i}`, type: "text", x: 180, y: 122 + yOff, width: 280, height: 26, rotation: 0, opacity: 1, visible: true, locked: false, text: "Father Name", fontSize: 16, fontFamily: "Inter", fontStyle: "normal", fill: "#111827", align: "left", fieldKey: "father_name", slotIndex: i },
-      { id: makeId(), name: `CNIC ${i}`, type: "text", x: 180, y: 150 + yOff, width: 200, height: 24, rotation: 0, opacity: 1, visible: true, locked: false, text: "CNIC", fontSize: 14, fontFamily: "Inter", fontStyle: "normal", fill: "#111827", align: "left", fieldKey: "cnic", slotIndex: i },
+      { id: makeId(), name: `Member Box ${i}`, type: "box", x, y, width: 218, height: 154, rotation: 0, opacity: 1, visible: true, locked: false, fill: "transparent", stroke: "#CBD5E1", strokeWidth: 1, slotIndex: i },
+      { id: makeId(), name: `Photo ${i}`, type: "image", x: x + 10, y: y + 12, width: 58, height: 72, rotation: 0, opacity: 1, visible: true, locked: false, src: null, fit: "crop", subtype: "photo", fieldKey: "photo", slotIndex: i },
+      { id: makeId(), name: `Name ${i}`, type: "text", x: x + 78, y: y + 13, width: 126, height: 22, rotation: 0, opacity: 1, visible: true, locked: false, text: "Name", fontSize: 13, fontFamily: "Arial", fontStyle: "bold", fill: "#111827", align: "left", fieldKey: "name", slotIndex: i },
+      { id: makeId(), name: `Relation ${i}`, type: "text", x: x + 78, y: y + 38, width: 126, height: 18, rotation: 0, opacity: 1, visible: true, locked: false, text: "Relation", fontSize: 11, fontFamily: "Arial", fontStyle: "normal", fill: "#374151", align: "left", fieldKey: "relation", slotIndex: i },
+      { id: makeId(), name: `Father Name ${i}`, type: "text", x: x + 78, y: y + 59, width: 126, height: 18, rotation: 0, opacity: 1, visible: true, locked: false, text: "Father Name", fontSize: 10, fontFamily: "Arial", fontStyle: "normal", fill: "#374151", align: "left", fieldKey: "father_name", slotIndex: i },
+      { id: makeId(), name: `CNIC ${i}`, type: "text", x: x + 10, y: y + 94, width: 194, height: 18, rotation: 0, opacity: 1, visible: true, locked: false, text: "CNIC", fontSize: 11, fontFamily: "Arial", fontStyle: "normal", fill: "#111827", align: "left", fieldKey: "cnic", slotIndex: i },
+      { id: makeId(), name: `DOB ${i}`, type: "text", x: x + 10, y: y + 118, width: 194, height: 18, rotation: 0, opacity: 1, visible: true, locked: false, text: "DOB", fontSize: 10, fontFamily: "Arial", fontStyle: "normal", fill: "#374151", align: "left", fieldKey: "dob", slotIndex: i },
     );
   }
   return layers;
@@ -108,7 +116,7 @@ function DesignerPage() {
             return {
               id: l.id || makeId(), name: l.name || "Text", type: "text" as const,
               x: l.x, y: l.y, width: l.width, height: l.height,
-              rotation: 0, opacity: 1, visible: true, locked: false,
+              rotation: 0, opacity: 1, visible: false, locked: false,
               text: l.text || "", fontSize: l.fontSize || 24, fontFamily: l.fontFamily || "Inter",
               fontStyle: "normal", fill: l.fill || "#111827", align: "left" as const,
             };
@@ -116,7 +124,7 @@ function DesignerPage() {
           return {
             id: l.id || makeId(), name: l.name || "Layer", type: "image" as const,
             x: l.x, y: l.y, width: l.width, height: l.height,
-            rotation: 0, opacity: 1, visible: true, locked: false,
+            rotation: 0, opacity: 1, visible: false, locked: false,
             src: l.src, fit: "stretch" as const, subtype: "asset" as const,
           };
         });
