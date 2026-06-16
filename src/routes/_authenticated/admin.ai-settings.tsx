@@ -33,7 +33,7 @@ export const Route = createFileRoute("/_authenticated/admin/ai-settings")({
 });
 
 function AiSettingsPage() {
-  const { role } = useAuth();
+  const { role, loading, user } = useAuth();
   const ctxFn = useServerFn(getAiContext);
   const saveFn = useServerFn(setAiSettings);
   const usageFn = useServerFn(listAiUsage);
@@ -44,11 +44,12 @@ function AiSettingsPage() {
   const saveKeyFn = useServerFn(setProviderKey);
   const qc = useQueryClient();
 
-  const { data: ctx } = useQuery({ queryKey: ["ai-context"], queryFn: () => ctxFn() });
-  const { data: usage } = useQuery({ queryKey: ["ai-usage"], queryFn: () => usageFn() });
-  const { data: users } = useQuery({ queryKey: ["admin-users"], queryFn: () => usersFn() });
-  const { data: accessMap } = useQuery({ queryKey: ["ai-access"], queryFn: () => accessFn() });
-  const { data: providerKeys } = useQuery({ queryKey: ["provider-keys"], queryFn: () => keysFn() });
+  const isAdmin = !!user && role === "admin";
+  const { data: ctx } = useQuery({ queryKey: ["ai-context"], queryFn: () => ctxFn(), enabled: isAdmin });
+  const { data: usage } = useQuery({ queryKey: ["ai-usage"], queryFn: () => usageFn(), enabled: isAdmin });
+  const { data: users } = useQuery({ queryKey: ["admin-users"], queryFn: () => usersFn(), enabled: isAdmin });
+  const { data: accessMap } = useQuery({ queryKey: ["ai-access"], queryFn: () => accessFn(), enabled: isAdmin });
+  const { data: providerKeys } = useQuery({ queryKey: ["provider-keys"], queryFn: () => keysFn(), enabled: isAdmin });
 
   const saveKey = useMutation({
     mutationFn: (v: { provider: "openai" | "gemini" | "claude"; apiKey: string }) =>
