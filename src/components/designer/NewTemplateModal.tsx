@@ -302,8 +302,8 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
           <div className="space-y-4 pt-1">
             <div>
               <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">Quick presets</div>
-              <div className="grid grid-cols-5 gap-2">
-                {([1, 2, 4, 6, 8] as MemberCount[]).map((n) => (
+              <div className="grid grid-cols-6 gap-2">
+                {([1, 2, 4, 6, 8, 20] as MemberCount[]).map((n) => (
                   <button
                     key={n}
                     onClick={() => goMode("member", n)}
@@ -314,9 +314,13 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
                   </button>
                 ))}
               </div>
+              <p className="text-[10px] text-slate-500 mt-2 leading-snug">
+                Each page fits up to 10 members in a clear VIP-style table. Picking more than 10
+                auto-paginates at entry time — no rows are split across pages.
+              </p>
             </div>
             <div className="border-t pt-3">
-              <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">Custom count (1–20)</div>
+              <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">Customize (1–20)</div>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
