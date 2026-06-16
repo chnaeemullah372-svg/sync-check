@@ -232,7 +232,11 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
   const [memberStep, setMemberStep] = useState(false);
   const [customCount, setCustomCount] = useState<string>("4");
   const blankFileRef = useRef<HTMLInputElement>(null);
-  const [blankPending, setBlankPending] = useState<{ src: string; width: number; height: number } | null>(null);
+  const [blankPending, setBlankPending] = useState<{
+    src: string;
+    width: number;
+    height: number;
+  } | null>(null);
 
   const goMode = (mode: NewTemplateMode, members?: MemberCount) => {
     onOpenChange(false);
@@ -282,9 +286,6 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
     setStagedBlank({ ...blankPending, fitMode });
     goMode("blank");
   };
-
-
-
   const handlePsd = async (file: File) => {
     if (!file.name.toLowerCase().endsWith(".psd")) {
       toast.error("Please select a Photoshop .psd file. For JPG/PNG use Blank Template.");
@@ -294,7 +295,9 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
     try {
       const { readPsd } = await import("ag-psd");
       const buf = await file.arrayBuffer().catch(() => {
-        throw new Error("File permission blocked. Move the PSD to Downloads/Files, then select it again.");
+        throw new Error(
+          "File permission blocked. Move the PSD to Downloads/Files, then select it again.",
+        );
       });
       const psd = readPsd(buf, { skipCompositeImageData: false });
 
@@ -314,13 +317,28 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
       }
 
       type Out = {
-        id: string; name: string; type: "image" | "text"; x: number; y: number; width: number; height: number;
-        rotation?: number; src?: string; text?: string; fontSize?: number; fontFamily?: string; fontStyle?: string; fill?: string; align?: "left" | "center" | "right"; rtl?: boolean;
-        originalFontFamily?: string; fontMissing?: boolean;
+        id: string;
+        name: string;
+        type: "image" | "text";
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        rotation?: number;
+        src?: string;
+        text?: string;
+        fontSize?: number;
+        fontFamily?: string;
+        fontStyle?: string;
+        fill?: string;
+        align?: "left" | "center" | "right";
+        rtl?: boolean;
+        originalFontFamily?: string;
+        fontMissing?: boolean;
       };
       const out: Out[] = [];
       const missingFonts = new Set<string>();
-      const walk = (nodes: any[] | undefined) => {
+      const walk = (nodes: PsdNode[] | undefined) => {
         if (!nodes) return;
         for (const n of nodes) {
           if (n.children) { walk(n.children); continue; }
