@@ -44,13 +44,13 @@ export const Route = createFileRoute("/_authenticated/designer")({
 
 function memberStarterLayers(count: number = 1): Layer[] {
   const layers: Layer[] = [];
-  for (let i = 1; i <= count; i++) {
+  const slotCount = Math.min(count, 15);
+  for (let i = 1; i <= slotCount; i++) {
     const pageSlot = (i - 1) % 15;
     const col = pageSlot % 3;
     const row = Math.floor(pageSlot / 3);
-    const page = Math.floor((i - 1) / 15);
     const x = 46 + col * 250;
-    const y = 64 + row * 198 + page * A4_PORTRAIT.h;
+    const y = 64 + row * 198;
     layers.push(
       { id: makeId(), name: `Member Box ${i}`, type: "box", x, y, width: 218, height: 154, rotation: 0, opacity: 1, visible: true, locked: false, fill: "transparent", stroke: "#CBD5E1", strokeWidth: 1, slotIndex: i },
       { id: makeId(), name: `Photo ${i}`, type: "image", x: x + 10, y: y + 12, width: 58, height: 72, rotation: 0, opacity: 1, visible: true, locked: false, src: null, fit: "crop", subtype: "photo", fieldKey: "photo", slotIndex: i },
