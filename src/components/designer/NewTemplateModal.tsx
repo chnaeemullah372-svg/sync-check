@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { setStagedPsd } from "@/lib/designer/psd-staging";
 import { setStagedBlank } from "@/lib/designer/blank-staging";
+import { FONT_LIBRARY } from "@/lib/designer/fonts";
 import {
   Dialog,
   DialogContent,
@@ -79,6 +80,36 @@ const OPTIONS: {
     tint: "bg-amber-50 text-amber-600",
   },
 ];
+
+const SYSTEM_FONTS = new Set([
+  "Arial", "Arial Black", "Helvetica", "Times New Roman", "Georgia", "Courier New", "Verdana", "Tahoma", "Trebuchet MS", "Impact",
+]);
+const FONT_ALIASES: Record<string, string> = {
+  ArialMT: "Arial",
+  ArialBoldMT: "Arial",
+  HelveticaNeue: "Helvetica",
+  TimesNewRomanPSMT: "Times New Roman",
+  TimesNewRomanPSBoldMT: "Times New Roman",
+  CourierNewPSMT: "Courier New",
+  MyriadProRegular: "Myriad Pro",
+  JameelNooriNastaleeq: "Jameel Noori Nastaleeq",
+  AlviNastaleeq: "Alvi Nastaleeq",
+};
+
+function normalizePsdFont(raw: unknown) {
+  const value = String(raw || "Arial").trim() || "Arial";
+  const compact = value.replace(/[\s_-]/g, "");
+  if (FONT_ALIASES[value]) return FONT_ALIASES[value];
+  if (FONT_ALIASES[compact]) return FONT_ALIASES[compact];
+  return value
+    .replace(/PSMT$/i, "")
+    .replace(/[-_](Regular|Bold|Italic|Medium|Light|Black)$/i, "")
+    .trim() || value;
+}
+
+function isKnownDesignerFont(fontFamily: string) {
+  return SYSTEM_FONTS.has(fontFamily) || FONT_LIBRARY.some((font) => font.family === fontFamily);
+}
 
 export function NewTemplateModal({ open, onOpenChange }: Props) {
   const navigate = useNavigate();
