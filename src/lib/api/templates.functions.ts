@@ -32,6 +32,7 @@ export const saveTemplate = createServerFn({ method: "POST" })
       snapshot: z.any(),
       category: z.string().trim().max(60).nullable().optional(),
       aiInstructions: z.string().max(4000).nullable().optional(),
+      membersPerPage: z.number().int().min(1).max(20).nullable().optional(),
     }),
   )
   .handler(async ({ data, context }) => {
@@ -50,6 +51,7 @@ export const saveTemplate = createServerFn({ method: "POST" })
           background_url: data.backgroundUrl ?? null,
           category: data.category ?? null,
           ai_instructions: data.aiInstructions ?? null,
+          members_per_page: data.membersPerPage ?? null,
           status: "active",
         })
         .eq("id", templateId);
@@ -65,6 +67,7 @@ export const saveTemplate = createServerFn({ method: "POST" })
           background_url: data.backgroundUrl ?? null,
           category: data.category ?? null,
           ai_instructions: data.aiInstructions ?? null,
+          members_per_page: data.membersPerPage ?? null,
           status: "active",
           created_by: context.userId,
         })
