@@ -360,6 +360,7 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
     // Marquee select
     if (m.w > 5 && m.h > 5) {
       const inside = layers.filter((l) => {
+        if (isPageBackgroundLayer(l, canvasWidth, canvasHeight)) return false;
         if (!l.visible) return false;
         return l.x + l.width >= m.x && l.x <= m.x + m.w && l.y + l.height >= m.y && l.y <= m.y + m.h;
       }).map((l) => l.id);
@@ -403,8 +404,8 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
           </KLayer>
           <KLayer>
             {displayLayers.map((layer) => {
-              const isSel = selectedIds.includes(layer.id);
               const passiveBackground = isPageBackgroundLayer(layer, canvasWidth, canvasHeight);
+              const isSel = !passiveBackground && selectedIds.includes(layer.id);
               const onSelect = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
                 // Fill tool: tap layer → fill with toolColor
                 if (activeTool === "fill") {

@@ -551,7 +551,7 @@ function EntryEditor() {
   }
 
   const tpl: any = data.entry?.templates;
-  const slotsPerPage = Math.max(1, Math.min(15, slotCount));
+  const slotsPerPage = Math.max(1, Math.min(10, Number(snapshot?.membersPerPage ?? slotCount) || slotCount));
   const maxFilledMember = Object.keys(form)
     .map(Number)
     .filter((n) => !Number.isNaN(n) && Object.values(form[n] ?? {}).some((v) => String(v ?? "").trim() !== ""))
