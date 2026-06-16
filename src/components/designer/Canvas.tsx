@@ -173,6 +173,9 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
   const marqueeStart = useRef<{ x: number; y: number } | null>(null);
   const [editingText, setEditingText] = useState<{ id: string; value: string; x: number; y: number; w: number; h: number; fontSize: number; fontFamily: string; color: string; align: string; rtl?: boolean } | null>(null);
   const scale = fitScale * userZoom;
+  const backgroundLayerIds = new Set(layers.filter((layer) => isPageBackgroundLayer(layer, canvasWidth, canvasHeight)).map((layer) => layer.id));
+  const activeSelectedIds = selectedIds.filter((id) => !backgroundLayerIds.has(id));
+  const selectedLayer = activeSelectedIds.length === 1 ? layers.find((l) => l.id === activeSelectedIds[0]) : null;
   const displayLayers = [...layers].sort((a, b) => Number(isPageBackgroundLayer(b, canvasWidth, canvasHeight)) - Number(isPageBackgroundLayer(a, canvasWidth, canvasHeight)));
 
   // Pinch-to-zoom only the canvas
@@ -226,11 +229,11 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
   useEffect(() => {
     const tr = transformerRef.current;
     if (!tr) return;
-    if (selectedIds.length === 0) { tr.nodes([]); tr.getLayer()?.batchDraw(); return; }
-    const nodes = selectedIds.map((id) => nodeMap.current.get(id)).filter(Boolean) as Konva.Node[];
+    if (activeSelectedIds.length === 0) { tr.nodes([]); tr.getLayer()?.batchDraw(); return; }
+    const nodes = activeSelectedIds.map((id) => nodeMap.current.get(id)).filter(Boolean) as Konva.Node[];
     tr.nodes(nodes);
     tr.getLayer()?.batchDraw();
-  }, [selectedIds, layers]);
+  }, [activeSelectedIds, layers]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
