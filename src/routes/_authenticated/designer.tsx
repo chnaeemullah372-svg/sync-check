@@ -43,22 +43,78 @@ export const Route = createFileRoute("/_authenticated/designer")({
 });
 
 function memberStarterLayers(count: number = 1): Layer[] {
+  // Clean VIP-style member table — max 10 rows per page so each row stays clearly readable.
+  // If the user picked more than 10 members, the entry preview auto-paginates extras
+  // by repeating this same slot layout on additional pages (no mixed rows across pages).
   const layers: Layer[] = [];
-  const slotCount = Math.min(count, 15);
+  const slotCount = Math.min(Math.max(count, 1), 10);
+
+  const COL = {
+    photo:    { x: 18,  w: 70 },
+    name:     { x: 100, w: 180 },
+    father:   { x: 286, w: 160 },
+    cnic:     { x: 452, w: 138 },
+    dob:      { x: 596, w: 96 },
+    relation: { x: 698, w: 80 },
+  };
+  const HEADER_Y = 86;
+  const HEADER_H = 30;
+  const ROW_TOP = 120;
+  const ROW_H = 92;
+
+  layers.push(
+    { id: makeId(), name: "Title Bar", type: "box", x: 18, y: 22, width: 758, height: 46, rotation: 0, opacity: 1, visible: true, locked: false, fill: "#0F172A", stroke: "transparent", strokeWidth: 0, slotIndex: 0 } as Layer,
+    { id: makeId(), name: "Title", type: "text", x: 18, y: 30, width: 758, height: 30, rotation: 0, opacity: 1, visible: true, locked: false, text: "FAMILY MEMBERS", fontSize: 20, fontFamily: "Arial", fontStyle: "bold", fill: "#ffffff", align: "center", slotIndex: 0 } as Layer,
+    { id: makeId(), name: "Header BG", type: "box", x: 18, y: HEADER_Y, width: 758, height: HEADER_H, rotation: 0, opacity: 1, visible: true, locked: false, fill: "#E2E8F0", stroke: "#94A3B8", strokeWidth: 1, slotIndex: 0 } as Layer,
+  );
+  const headers: Array<[string, { x: number; w: number }]> = [
+    ["Photo", COL.photo], ["Name", COL.name], ["Father Name", COL.father],
+    ["CNIC", COL.cnic], ["D.O.B", COL.dob], ["Relation", COL.relation],
+  ];
+  for (const [label, c] of headers) {
+    layers.push({
+      id: makeId(), name: `Header ${label}`, type: "text",
+      x: c.x, y: HEADER_Y + 7, width: c.w, height: 20, rotation: 0, opacity: 1, visible: true, locked: false,
+      text: label, fontSize: 12, fontFamily: "Arial", fontStyle: "bold", fill: "#0F172A", align: "center", slotIndex: 0,
+    } as Layer);
+  }
+
   for (let i = 1; i <= slotCount; i++) {
-    const pageSlot = (i - 1) % 15;
-    const col = pageSlot % 3;
-    const row = Math.floor(pageSlot / 3);
-    const x = 46 + col * 250;
-    const y = 64 + row * 198;
+    const y = ROW_TOP + (i - 1) * ROW_H;
+    const isFirst = i === 1;
+    const relationDefault = isFirst ? "Self" : "Relation";
     layers.push(
-      { id: makeId(), name: `Member Box ${i}`, type: "box", x, y, width: 218, height: 154, rotation: 0, opacity: 1, visible: true, locked: false, fill: "transparent", stroke: "#CBD5E1", strokeWidth: 1, slotIndex: i },
-      { id: makeId(), name: `Photo ${i}`, type: "image", x: x + 10, y: y + 12, width: 58, height: 72, rotation: 0, opacity: 1, visible: true, locked: false, src: null, fit: "crop", subtype: "photo", fieldKey: "photo", slotIndex: i },
-      { id: makeId(), name: `Name ${i}`, type: "text", x: x + 78, y: y + 13, width: 126, height: 22, rotation: 0, opacity: 1, visible: true, locked: false, text: "Name", fontSize: 13, fontFamily: "Arial", fontStyle: "bold", fill: "#111827", align: "left", fieldKey: "name", slotIndex: i },
-      { id: makeId(), name: `Relation ${i}`, type: "text", x: x + 78, y: y + 38, width: 126, height: 18, rotation: 0, opacity: 1, visible: true, locked: false, text: "Relation", fontSize: 11, fontFamily: "Arial", fontStyle: "normal", fill: "#374151", align: "left", fieldKey: "relation", slotIndex: i },
-      { id: makeId(), name: `Father Name ${i}`, type: "text", x: x + 78, y: y + 59, width: 126, height: 18, rotation: 0, opacity: 1, visible: true, locked: false, text: "Father Name", fontSize: 10, fontFamily: "Arial", fontStyle: "normal", fill: "#374151", align: "left", fieldKey: "father_name", slotIndex: i },
-      { id: makeId(), name: `CNIC ${i}`, type: "text", x: x + 10, y: y + 94, width: 194, height: 18, rotation: 0, opacity: 1, visible: true, locked: false, text: "CNIC", fontSize: 11, fontFamily: "Arial", fontStyle: "normal", fill: "#111827", align: "left", fieldKey: "cnic", slotIndex: i },
-      { id: makeId(), name: `DOB ${i}`, type: "text", x: x + 10, y: y + 118, width: 194, height: 18, rotation: 0, opacity: 1, visible: true, locked: false, text: "DOB", fontSize: 10, fontFamily: "Arial", fontStyle: "normal", fill: "#374151", align: "left", fieldKey: "dob", slotIndex: i },
+      { id: makeId(), name: `Row ${i} Border`, type: "box", x: 18, y, width: 758, height: ROW_H, rotation: 0, opacity: 1, visible: true, locked: false, fill: "transparent", stroke: "#CBD5E1", strokeWidth: 1, slotIndex: i } as Layer,
+      { id: makeId(), name: `Photo ${i}`, type: "image",
+        x: COL.photo.x + 4, y: y + 6, width: COL.photo.w - 8, height: ROW_H - 12,
+        rotation: 0, opacity: 1, visible: true, locked: false,
+        src: null, fit: "crop", subtype: "photo", fieldKey: "photo", faceCrop: "passport", slotIndex: i } as Layer,
+      { id: makeId(), name: `Name ${i}`, type: "text",
+        x: COL.name.x + 4, y: y + (ROW_H / 2) - 12, width: COL.name.w - 8, height: 24,
+        rotation: 0, opacity: 1, visible: true, locked: false,
+        text: "Name", fontSize: 14, fontFamily: "Arial", fontStyle: "bold", fill: "#0F172A", align: "left",
+        fieldKey: "name", slotIndex: i } as Layer,
+      { id: makeId(), name: `Father Name ${i}`, type: "text",
+        x: COL.father.x + 4, y: y + (ROW_H / 2) - 11, width: COL.father.w - 8, height: 22,
+        rotation: 0, opacity: 1, visible: true, locked: false,
+        text: "Father Name", fontSize: 13, fontFamily: "Arial", fontStyle: "normal", fill: "#1F2937", align: "left",
+        fieldKey: "father_name", slotIndex: i } as Layer,
+      { id: makeId(), name: `CNIC ${i}`, type: "text",
+        x: COL.cnic.x + 4, y: y + (ROW_H / 2) - 10, width: COL.cnic.w - 8, height: 20,
+        rotation: 0, opacity: 1, visible: true, locked: false,
+        text: "CNIC", fontSize: 12, fontFamily: "Arial", fontStyle: "normal", fill: "#0F172A", align: "left",
+        fieldKey: "cnic", slotIndex: i } as Layer,
+      { id: makeId(), name: `DOB ${i}`, type: "text",
+        x: COL.dob.x + 4, y: y + (ROW_H / 2) - 10, width: COL.dob.w - 8, height: 20,
+        rotation: 0, opacity: 1, visible: true, locked: false,
+        text: "DOB", fontSize: 12, fontFamily: "Arial", fontStyle: "normal", fill: "#1F2937", align: "left",
+        fieldKey: "dob", slotIndex: i } as Layer,
+      { id: makeId(), name: `Relation ${i}`, type: "text",
+        x: COL.relation.x + 4, y: y + (ROW_H / 2) - 10, width: COL.relation.w - 8, height: 20,
+        rotation: 0, opacity: 1, visible: true, locked: false,
+        text: relationDefault, fontSize: 13, fontFamily: "Arial", fontStyle: "bold",
+        fill: isFirst ? "#0369A1" : "#1F2937", align: "center",
+        fieldKey: "relation", slotIndex: i } as Layer,
     );
   }
   return layers;
