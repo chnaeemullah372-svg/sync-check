@@ -98,13 +98,16 @@ export const createEntry = createServerFn({ method: "POST" })
 
     const { data: tpl } = await supabase
       .from("templates")
-      .select("name, members_per_page, template_objects(objects)")
+      .select("name, members_per_page")
       .eq("id", data.templateId)
       .single();
 
-    const snapshot = Array.isArray((tpl as any)?.template_objects)
-      ? (tpl as any).template_objects[0]?.objects
-      : (tpl as any)?.template_objects?.objects;
+    const { data: snap } = await supabase
+      .from("template_objects")
+      .select("objects")
+      .eq("template_id", data.templateId)
+      .maybeSingle();
+    const snapshot = snap?.objects;
     const defaultCount = inferTemplateMemberCount({ snapshot, templateName: (tpl as any)?.name });
 
     const { data: ins, error } = await supabase
