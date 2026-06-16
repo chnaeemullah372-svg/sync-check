@@ -476,7 +476,7 @@ function DesignerPage() {
             opacity: 1,
             visible: false,
             locked: false,
-            src: l.src,
+            src: l.src ?? null,
             fit: "stretch" as const,
             subtype: "asset" as const,
           };
