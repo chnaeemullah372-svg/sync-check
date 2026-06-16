@@ -111,7 +111,7 @@ type PsdTextStyle = {
   fontSize?: unknown | PsdSizedValue;
   size?: unknown | PsdSizedValue;
   fontStyle?: unknown;
-  fillColor?: { r?: number; g?: number; b?: number };
+  fillColor?: { r?: number; g?: number; b?: number; c?: number; m?: number; y?: number; k?: number };
 };
 type PsdParagraphStyle = { justification?: unknown; align?: unknown };
 type PsdTextInfo = {
@@ -229,6 +229,25 @@ function getPsdFontStyle(style: PsdTextStyle, layerName: string) {
   const bold = /bold|black|heavy|semibold|demi/.test(family);
   const italic = /italic|oblique/.test(family);
   return [bold ? "bold" : "", italic ? "italic" : ""].filter(Boolean).join(" ") || "normal";
+}
+
+function getPsdFillColor(style: PsdTextStyle) {
+  const c = style.fillColor;
+  if (!c) return "#111827";
+  if (typeof c.r === "number" || typeof c.g === "number" || typeof c.b === "number") {
+    return `rgb(${c.r ?? 0},${c.g ?? 0},${c.b ?? 0})`;
+  }
+  if (typeof c.c === "number" || typeof c.m === "number" || typeof c.y === "number") {
+    const cyan = (c.c ?? 0) / 100;
+    const magenta = (c.m ?? 0) / 100;
+    const yellow = (c.y ?? 0) / 100;
+    const black = (c.k ?? 0) / 100;
+    const r = Math.round(255 * (1 - cyan) * (1 - black));
+    const g = Math.round(255 * (1 - magenta) * (1 - black));
+    const b = Math.round(255 * (1 - yellow) * (1 - black));
+    return `rgb(${r},${g},${b})`;
+  }
+  return "#111827";
 }
 
 export function NewTemplateModal({ open, onOpenChange }: Props) {
