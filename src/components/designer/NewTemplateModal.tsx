@@ -347,7 +347,10 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
       const walk = (nodes: PsdNode[] | undefined) => {
         if (!nodes) return;
         for (const n of nodes) {
-          if (n.children) { walk(n.children); continue; }
+          if (n.children) {
+            walk(n.children);
+            continue;
+          }
           if (n.hidden) continue;
           const left = n.left ?? 0;
           const top = n.top ?? 0;
@@ -360,17 +363,33 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
           if (n.text?.text) {
             const textInfo = n.text || {};
             const style = textInfo.styleRuns?.[0]?.style || textInfo.style || {};
-            const resolvedFont = resolvePsdFont(style.font?.name || style.font?.family || n.text?.font?.name || n.text?.font?.family || "Arial");
+            const resolvedFont = resolvePsdFont(
+              style.font?.name ||
+                style.font?.family ||
+                n.text?.font?.name ||
+                n.text?.font?.family ||
+                "Arial",
+            );
             if (resolvedFont.missing) missingFonts.add(resolvedFont.requested);
             const fontSize = getPsdFontSize(style, h);
-            const paragraph = textInfo.paragraphStyle || textInfo.paragraphStyleRuns?.[0]?.style || {};
-            const justification = String(paragraph.justification || paragraph.align || "left").toLowerCase();
-            const align = justification.includes("center") ? "center" : justification.includes("right") ? "right" : "left";
+            const paragraph =
+              textInfo.paragraphStyle || textInfo.paragraphStyleRuns?.[0]?.style || {};
+            const justification = String(
+              paragraph.justification || paragraph.align || "left",
+            ).toLowerCase();
+            const align = justification.includes("center")
+              ? "center"
+              : justification.includes("right")
+                ? "right"
+                : "left";
             out.push({
               id: crypto.randomUUID(),
               name: n.name || "Text",
               type: "text",
-              x: left, y: top, width: w, height: h,
+              x: left,
+              y: top,
+              width: w,
+              height: h,
               text: n.text.text,
               fontSize,
               fontFamily: resolvedFont.family,
@@ -380,20 +399,26 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
               rtl: resolvedFont.family.includes("Urdu") || resolvedFont.family.includes("Arabic"),
               originalFontFamily: resolvedFont.requested,
               fontMissing: resolvedFont.missing,
-              fill: style.fillColor ? `rgb(${style.fillColor.r ?? 0},${style.fillColor.g ?? 0},${style.fillColor.b ?? 0})` : "#111827",
+              fill: style.fillColor
+                ? `rgb(${style.fillColor.r ?? 0},${style.fillColor.g ?? 0},${style.fillColor.b ?? 0})`
+                : "#111827",
             });
             continue;
           }
           if (!n.canvas) continue;
           try {
             const lc = n.canvas as HTMLCanvasElement;
-            const useJpeg = (lc.width * lc.height) > 800_000;
+            const useJpeg = lc.width * lc.height > 800_000;
             const src = useJpeg ? lc.toDataURL("image/jpeg", 0.85) : lc.toDataURL("image/png");
             out.push({
               id: crypto.randomUUID(),
               name: n.name || "Layer",
               type: "image",
-              x: left, y: top, width: w, height: h, src,
+              x: left,
+              y: top,
+              width: w,
+              height: h,
+              src,
             });
           } catch {
             /* ignore */
@@ -407,14 +432,19 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
       try {
         sessionStorage.removeItem("designer.currentTemplateId");
         sessionStorage.removeItem("designer.currentTemplateName");
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
 
       onOpenChange(false);
       setMemberStep(false);
       navigate({ to: "/designer", search: { mode: "psd" } as never });
       if (missingFonts.size > 0) {
         const names = Array.from(missingFonts);
-        toast.warning(`PSD imported with fallback fonts. Missing: ${names.slice(0, 6).join(", ")}${names.length > 6 ? ` +${names.length - 6} more` : ""}. Text size/scale was preserved; only fallback font changed.`, { duration: 12000 });
+        toast.warning(
+          `PSD imported with fallback fonts. Missing: ${names.slice(0, 6).join(", ")}${names.length > 6 ? ` +${names.length - 6} more` : ""}. Text size/scale was preserved; only fallback font changed.`,
+          { duration: 12000 },
+        );
       } else {
         toast.success(`Imported ${out.length} layers from PSD`);
       }
@@ -427,16 +457,31 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) { setMemberStep(false); setBlankPending(null); } }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        onOpenChange(v);
+        if (!v) {
+          setMemberStep(false);
+          setBlankPending(null);
+        }
+      }}
+    >
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {blankPending ? "Fit the image to A4?" : memberStep ? "How many members?" : "Create new template"}
+            {blankPending
+              ? "Fit the image to A4?"
+              : memberStep
+                ? "How many members?"
+                : "Create new template"}
           </DialogTitle>
           <DialogDescription>
             {blankPending
               ? "Auto fits proportionally to A4 portrait. Custom keeps the image's original size."
-              : memberStep ? "Pick how many member slots to start with — you can add/remove later." : "Pick a starting point for the Designer."}
+              : memberStep
+                ? "Pick how many member slots to start with — you can add/remove later."
+                : "Pick a starting point for the Designer."}
           </DialogDescription>
         </DialogHeader>
 
@@ -466,10 +511,16 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
         {blankPending ? (
           <div className="space-y-4 pt-1">
             <div className="rounded-lg border bg-muted/30 p-3 flex items-center gap-3">
-              <img src={blankPending.src} alt="Preview" className="h-20 w-20 object-contain bg-white rounded border" />
+              <img
+                src={blankPending.src}
+                alt="Preview"
+                className="h-20 w-20 object-contain bg-white rounded border"
+              />
               <div className="text-xs text-slate-600">
                 <div className="font-semibold text-slate-900">Image loaded</div>
-                <div>{blankPending.width} × {blankPending.height} px</div>
+                <div>
+                  {blankPending.width} × {blankPending.height} px
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -492,12 +543,21 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
                 </div>
               </button>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => setBlankPending(null)} className="w-full">← Choose a different image</Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setBlankPending(null)}
+              className="w-full"
+            >
+              ← Choose a different image
+            </Button>
           </div>
         ) : memberStep ? (
           <div className="space-y-4 pt-1">
             <div>
-              <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">Quick presets</div>
+              <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">
+                Quick presets
+              </div>
               <div className="grid grid-cols-6 gap-2">
                 {([1, 2, 4, 6, 8, 20] as MemberCount[]).map((n) => (
                   <button
@@ -516,7 +576,9 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
               </p>
             </div>
             <div className="border-t pt-3">
-              <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">Customize (1–20)</div>
+              <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">
+                Customize (1–20)
+              </div>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
@@ -556,8 +618,14 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
                   onClick={() => pick(o.id)}
                   className="text-left rounded-lg border p-4 hover:border-slate-400 hover:shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <div className={`${o.tint} w-10 h-10 rounded-lg flex items-center justify-center mb-3`}>
-                    {isPsdLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Icon className="h-5 w-5" />}
+                  <div
+                    className={`${o.tint} w-10 h-10 rounded-lg flex items-center justify-center mb-3`}
+                  >
+                    {isPsdLoading ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Icon className="h-5 w-5" />
+                    )}
                   </div>
                   <div className="font-bold text-sm">{o.title}</div>
                   <div className="text-xs text-slate-500 mt-1 leading-snug">{o.desc}</div>
