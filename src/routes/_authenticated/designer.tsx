@@ -14,8 +14,17 @@ import { CanvaTopBar } from "@/components/designer/canva/TopBar";
 import { BottomDock } from "@/components/designer/canva/BottomDock";
 import { DockProvider } from "@/components/designer/canva/dockState";
 import {
-  FontSheet, FontSizeSheet, ColorSheet, PositionSheet, AlignSheet,
-  AIFieldSheet, AIInstructionsSheet, LayersSheet, BackgroundSheet, PageSizeSheet, UploadsSheet,
+  FontSheet,
+  FontSizeSheet,
+  ColorSheet,
+  PositionSheet,
+  AlignSheet,
+  AIFieldSheet,
+  AIInstructionsSheet,
+  LayersSheet,
+  BackgroundSheet,
+  PageSizeSheet,
+  UploadsSheet,
 } from "@/components/designer/canva/Sheets";
 import { LeftToolbar } from "@/components/designer/canva/LeftToolbar";
 
@@ -25,18 +34,50 @@ const DesignerCanvas = lazy(() =>
 
 const CARD = { w: 638, h: 1012 };
 
+type ImportedPsdLayer = {
+  id?: string;
+  name?: string;
+  type?: string;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  rotation?: number;
+  src?: string;
+  text?: string;
+  fontSize?: number;
+  fontFamily?: string;
+  fontStyle?: string;
+  fill?: string;
+  align?: "left" | "center" | "right";
+  rtl?: boolean;
+};
+
+type DesignerSnapshot = {
+  background?: { src: string | null; width: number; height: number };
+  canvasWidth?: number;
+  canvasHeight?: number;
+  layers?: Layer[];
+  memberNames?: Record<number, string>;
+};
+
 export const Route = createFileRoute("/_authenticated/designer")({
   validateSearch: (search) =>
-    z.object({
-      tid: z.string().uuid().optional(),
-      mode: z.enum(["card", "onepage", "member", "psd", "frc", "blank"]).optional(),
-      editor: z.enum(["user"]).optional(),
-      entryId: z.string().uuid().optional(),
-    }).parse(search),
+    z
+      .object({
+        tid: z.string().uuid().optional(),
+        mode: z.enum(["card", "onepage", "member", "psd", "frc", "blank"]).optional(),
+        editor: z.enum(["user"]).optional(),
+        entryId: z.string().uuid().optional(),
+      })
+      .parse(search),
   head: () => ({
     meta: [
       { title: "Template Designer" },
-      { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" },
+      {
+        name: "viewport",
+        content: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
+      },
     ],
   }),
   component: DesignerPage,
@@ -50,11 +91,11 @@ function memberStarterLayers(count: number = 1): Layer[] {
   const slotCount = Math.min(Math.max(count, 1), 10);
 
   const COL = {
-    photo:    { x: 18,  w: 70 },
-    name:     { x: 100, w: 180 },
-    father:   { x: 286, w: 160 },
-    cnic:     { x: 452, w: 138 },
-    dob:      { x: 596, w: 96 },
+    photo: { x: 18, w: 70 },
+    name: { x: 100, w: 180 },
+    father: { x: 286, w: 160 },
+    cnic: { x: 452, w: 138 },
+    dob: { x: 596, w: 96 },
     relation: { x: 698, w: 80 },
   };
   const HEADER_Y = 86;
@@ -63,19 +104,89 @@ function memberStarterLayers(count: number = 1): Layer[] {
   const ROW_H = 92;
 
   layers.push(
-    { id: makeId(), name: "Title Bar", type: "box", x: 18, y: 22, width: 758, height: 46, rotation: 0, opacity: 1, visible: true, locked: false, fill: "#0F172A", stroke: "transparent", strokeWidth: 0, slotIndex: 0 } as Layer,
-    { id: makeId(), name: "Title", type: "text", x: 18, y: 30, width: 758, height: 30, rotation: 0, opacity: 1, visible: true, locked: false, text: "FAMILY MEMBERS", fontSize: 20, fontFamily: "Arial", fontStyle: "bold", fill: "#ffffff", align: "center", slotIndex: 0 } as Layer,
-    { id: makeId(), name: "Header BG", type: "box", x: 18, y: HEADER_Y, width: 758, height: HEADER_H, rotation: 0, opacity: 1, visible: true, locked: false, fill: "#E2E8F0", stroke: "#94A3B8", strokeWidth: 1, slotIndex: 0 } as Layer,
+    {
+      id: makeId(),
+      name: "Title Bar",
+      type: "box",
+      x: 18,
+      y: 22,
+      width: 758,
+      height: 46,
+      rotation: 0,
+      opacity: 1,
+      visible: true,
+      locked: false,
+      fill: "#0F172A",
+      stroke: "transparent",
+      strokeWidth: 0,
+      slotIndex: 0,
+    } as Layer,
+    {
+      id: makeId(),
+      name: "Title",
+      type: "text",
+      x: 18,
+      y: 30,
+      width: 758,
+      height: 30,
+      rotation: 0,
+      opacity: 1,
+      visible: true,
+      locked: false,
+      text: "FAMILY MEMBERS",
+      fontSize: 20,
+      fontFamily: "Arial",
+      fontStyle: "bold",
+      fill: "#ffffff",
+      align: "center",
+      slotIndex: 0,
+    } as Layer,
+    {
+      id: makeId(),
+      name: "Header BG",
+      type: "box",
+      x: 18,
+      y: HEADER_Y,
+      width: 758,
+      height: HEADER_H,
+      rotation: 0,
+      opacity: 1,
+      visible: true,
+      locked: false,
+      fill: "#E2E8F0",
+      stroke: "#94A3B8",
+      strokeWidth: 1,
+      slotIndex: 0,
+    } as Layer,
   );
   const headers: Array<[string, { x: number; w: number }]> = [
-    ["Photo", COL.photo], ["Name", COL.name], ["Father Name", COL.father],
-    ["CNIC", COL.cnic], ["D.O.B", COL.dob], ["Relation", COL.relation],
+    ["Photo", COL.photo],
+    ["Name", COL.name],
+    ["Father Name", COL.father],
+    ["CNIC", COL.cnic],
+    ["D.O.B", COL.dob],
+    ["Relation", COL.relation],
   ];
   for (const [label, c] of headers) {
     layers.push({
-      id: makeId(), name: `Header ${label}`, type: "text",
-      x: c.x, y: HEADER_Y + 7, width: c.w, height: 20, rotation: 0, opacity: 1, visible: true, locked: false,
-      text: label, fontSize: 12, fontFamily: "Arial", fontStyle: "bold", fill: "#0F172A", align: "center", slotIndex: 0,
+      id: makeId(),
+      name: `Header ${label}`,
+      type: "text",
+      x: c.x,
+      y: HEADER_Y + 7,
+      width: c.w,
+      height: 20,
+      rotation: 0,
+      opacity: 1,
+      visible: true,
+      locked: false,
+      text: label,
+      fontSize: 12,
+      fontFamily: "Arial",
+      fontStyle: "bold",
+      fill: "#0F172A",
+      align: "center",
+      slotIndex: 0,
     } as Layer);
   }
 
@@ -84,37 +195,147 @@ function memberStarterLayers(count: number = 1): Layer[] {
     const isFirst = i === 1;
     const relationDefault = isFirst ? "Self" : "Relation";
     layers.push(
-      { id: makeId(), name: `Row ${i} Border`, type: "box", x: 18, y, width: 758, height: ROW_H, rotation: 0, opacity: 1, visible: true, locked: false, fill: "transparent", stroke: "#CBD5E1", strokeWidth: 1, slotIndex: i } as Layer,
-      { id: makeId(), name: `Photo ${i}`, type: "image",
-        x: COL.photo.x + 4, y: y + 6, width: COL.photo.w - 8, height: ROW_H - 12,
-        rotation: 0, opacity: 1, visible: true, locked: false,
-        src: null, fit: "crop", subtype: "photo", fieldKey: "photo", faceCrop: "passport", slotIndex: i } as Layer,
-      { id: makeId(), name: `Name ${i}`, type: "text",
-        x: COL.name.x + 4, y: y + (ROW_H / 2) - 12, width: COL.name.w - 8, height: 24,
-        rotation: 0, opacity: 1, visible: true, locked: false,
-        text: "Name", fontSize: 14, fontFamily: "Arial", fontStyle: "bold", fill: "#0F172A", align: "left",
-        fieldKey: "name", slotIndex: i } as Layer,
-      { id: makeId(), name: `Father Name ${i}`, type: "text",
-        x: COL.father.x + 4, y: y + (ROW_H / 2) - 11, width: COL.father.w - 8, height: 22,
-        rotation: 0, opacity: 1, visible: true, locked: false,
-        text: "Father Name", fontSize: 13, fontFamily: "Arial", fontStyle: "normal", fill: "#1F2937", align: "left",
-        fieldKey: "father_name", slotIndex: i } as Layer,
-      { id: makeId(), name: `CNIC ${i}`, type: "text",
-        x: COL.cnic.x + 4, y: y + (ROW_H / 2) - 10, width: COL.cnic.w - 8, height: 20,
-        rotation: 0, opacity: 1, visible: true, locked: false,
-        text: "CNIC", fontSize: 12, fontFamily: "Arial", fontStyle: "normal", fill: "#0F172A", align: "left",
-        fieldKey: "cnic", slotIndex: i } as Layer,
-      { id: makeId(), name: `DOB ${i}`, type: "text",
-        x: COL.dob.x + 4, y: y + (ROW_H / 2) - 10, width: COL.dob.w - 8, height: 20,
-        rotation: 0, opacity: 1, visible: true, locked: false,
-        text: "DOB", fontSize: 12, fontFamily: "Arial", fontStyle: "normal", fill: "#1F2937", align: "left",
-        fieldKey: "dob", slotIndex: i } as Layer,
-      { id: makeId(), name: `Relation ${i}`, type: "text",
-        x: COL.relation.x + 4, y: y + (ROW_H / 2) - 10, width: COL.relation.w - 8, height: 20,
-        rotation: 0, opacity: 1, visible: true, locked: false,
-        text: relationDefault, fontSize: 13, fontFamily: "Arial", fontStyle: "bold",
-        fill: isFirst ? "#0369A1" : "#1F2937", align: "center",
-        fieldKey: "relation", slotIndex: i } as Layer,
+      {
+        id: makeId(),
+        name: `Row ${i} Border`,
+        type: "box",
+        x: 18,
+        y,
+        width: 758,
+        height: ROW_H,
+        rotation: 0,
+        opacity: 1,
+        visible: true,
+        locked: false,
+        fill: "transparent",
+        stroke: "#CBD5E1",
+        strokeWidth: 1,
+        slotIndex: i,
+      } as Layer,
+      {
+        id: makeId(),
+        name: `Photo ${i}`,
+        type: "image",
+        x: COL.photo.x + 4,
+        y: y + 6,
+        width: COL.photo.w - 8,
+        height: ROW_H - 12,
+        rotation: 0,
+        opacity: 1,
+        visible: true,
+        locked: false,
+        src: null,
+        fit: "crop",
+        subtype: "photo",
+        fieldKey: "photo",
+        faceCrop: "passport",
+        slotIndex: i,
+      } as Layer,
+      {
+        id: makeId(),
+        name: `Name ${i}`,
+        type: "text",
+        x: COL.name.x + 4,
+        y: y + ROW_H / 2 - 12,
+        width: COL.name.w - 8,
+        height: 24,
+        rotation: 0,
+        opacity: 1,
+        visible: true,
+        locked: false,
+        text: "Name",
+        fontSize: 14,
+        fontFamily: "Arial",
+        fontStyle: "bold",
+        fill: "#0F172A",
+        align: "left",
+        fieldKey: "name",
+        slotIndex: i,
+      } as Layer,
+      {
+        id: makeId(),
+        name: `Father Name ${i}`,
+        type: "text",
+        x: COL.father.x + 4,
+        y: y + ROW_H / 2 - 11,
+        width: COL.father.w - 8,
+        height: 22,
+        rotation: 0,
+        opacity: 1,
+        visible: true,
+        locked: false,
+        text: "Father Name",
+        fontSize: 13,
+        fontFamily: "Arial",
+        fontStyle: "normal",
+        fill: "#1F2937",
+        align: "left",
+        fieldKey: "father_name",
+        slotIndex: i,
+      } as Layer,
+      {
+        id: makeId(),
+        name: `CNIC ${i}`,
+        type: "text",
+        x: COL.cnic.x + 4,
+        y: y + ROW_H / 2 - 10,
+        width: COL.cnic.w - 8,
+        height: 20,
+        rotation: 0,
+        opacity: 1,
+        visible: true,
+        locked: false,
+        text: "CNIC",
+        fontSize: 12,
+        fontFamily: "Arial",
+        fontStyle: "normal",
+        fill: "#0F172A",
+        align: "left",
+        fieldKey: "cnic",
+        slotIndex: i,
+      } as Layer,
+      {
+        id: makeId(),
+        name: `DOB ${i}`,
+        type: "text",
+        x: COL.dob.x + 4,
+        y: y + ROW_H / 2 - 10,
+        width: COL.dob.w - 8,
+        height: 20,
+        rotation: 0,
+        opacity: 1,
+        visible: true,
+        locked: false,
+        text: "DOB",
+        fontSize: 12,
+        fontFamily: "Arial",
+        fontStyle: "normal",
+        fill: "#1F2937",
+        align: "left",
+        fieldKey: "dob",
+        slotIndex: i,
+      } as Layer,
+      {
+        id: makeId(),
+        name: `Relation ${i}`,
+        type: "text",
+        x: COL.relation.x + 4,
+        y: y + ROW_H / 2 - 10,
+        width: COL.relation.w - 8,
+        height: 20,
+        rotation: 0,
+        opacity: 1,
+        visible: true,
+        locked: false,
+        text: relationDefault,
+        fontSize: 13,
+        fontFamily: "Arial",
+        fontStyle: "bold",
+        fill: isFirst ? "#0369A1" : "#1F2937",
+        align: "center",
+        fieldKey: "relation",
+        slotIndex: i,
+      } as Layer,
     );
   }
   return layers;
@@ -135,70 +356,157 @@ function DesignerPage() {
     if (tid || !mode) return;
     const st = useDesigner.getState();
     if (mode === "card") {
-      st.loadState({ background: { src: null, width: CARD.w, height: CARD.h }, canvasWidth: CARD.w, canvasHeight: CARD.h, layers: [], memberNames: {} });
+      st.loadState({
+        background: { src: null, width: CARD.w, height: CARD.h },
+        canvasWidth: CARD.w,
+        canvasHeight: CARD.h,
+        layers: [],
+        memberNames: {},
+      });
       st.setSize("custom", CARD.w, CARD.h);
     } else if (mode === "onepage") {
-      st.loadState({ background: { src: null, width: A4_PORTRAIT.w, height: A4_PORTRAIT.h }, canvasWidth: A4_PORTRAIT.w, canvasHeight: A4_PORTRAIT.h, layers: [], memberNames: {} });
+      st.loadState({
+        background: { src: null, width: A4_PORTRAIT.w, height: A4_PORTRAIT.h },
+        canvasWidth: A4_PORTRAIT.w,
+        canvasHeight: A4_PORTRAIT.h,
+        layers: [],
+        memberNames: {},
+      });
       st.setSize("a4p");
     } else if (mode === "blank") {
       const b = consumeStagedBlank();
       if (b) {
         if (b.fitMode === "auto") {
-          st.loadState({ background: { src: b.src, width: A4_PORTRAIT.w, height: A4_PORTRAIT.h }, canvasWidth: A4_PORTRAIT.w, canvasHeight: A4_PORTRAIT.h, layers: [], memberNames: {} });
+          st.loadState({
+            background: { src: b.src, width: A4_PORTRAIT.w, height: A4_PORTRAIT.h },
+            canvasWidth: A4_PORTRAIT.w,
+            canvasHeight: A4_PORTRAIT.h,
+            layers: [],
+            memberNames: {},
+          });
           st.setSize("a4p");
         } else {
-          st.loadState({ background: { src: b.src, width: b.width, height: b.height }, canvasWidth: b.width, canvasHeight: b.height, layers: [], memberNames: {} });
+          st.loadState({
+            background: { src: b.src, width: b.width, height: b.height },
+            canvasWidth: b.width,
+            canvasHeight: b.height,
+            layers: [],
+            memberNames: {},
+          });
           st.setSize("custom", b.width, b.height);
         }
-        toast.success(`Background loaded (${b.fitMode === "auto" ? "fit A4" : `${b.width}×${b.height}`})`);
+        toast.success(
+          `Background loaded (${b.fitMode === "auto" ? "fit A4" : `${b.width}×${b.height}`})`,
+        );
       } else {
-        st.loadState({ background: { src: null, width: A4_PORTRAIT.w, height: A4_PORTRAIT.h }, canvasWidth: A4_PORTRAIT.w, canvasHeight: A4_PORTRAIT.h, layers: [], memberNames: {} });
+        st.loadState({
+          background: { src: null, width: A4_PORTRAIT.w, height: A4_PORTRAIT.h },
+          canvasWidth: A4_PORTRAIT.w,
+          canvasHeight: A4_PORTRAIT.h,
+          layers: [],
+          memberNames: {},
+        });
         st.setSize("a4p");
       }
     } else if (mode === "member") {
       let count = 1;
-      try { count = Math.max(1, Math.min(20, parseInt(sessionStorage.getItem("designer.memberCount") || "1", 10))); } catch { /* ignore */ }
+      try {
+        count = Math.max(
+          1,
+          Math.min(20, parseInt(sessionStorage.getItem("designer.memberCount") || "1", 10)),
+        );
+      } catch {
+        /* ignore */
+      }
       const names: Record<number, string> = {};
       for (let i = 1; i <= count; i++) names[i] = `Member ${i}`;
-      st.loadState({ background: { src: null, width: A4_PORTRAIT.w, height: A4_PORTRAIT.h }, canvasWidth: A4_PORTRAIT.w, canvasHeight: A4_PORTRAIT.h, layers: memberStarterLayers(count), memberNames: names });
+      st.loadState({
+        background: { src: null, width: A4_PORTRAIT.w, height: A4_PORTRAIT.h },
+        canvasWidth: A4_PORTRAIT.w,
+        canvasHeight: A4_PORTRAIT.h,
+        layers: memberStarterLayers(count),
+        memberNames: names,
+      });
       st.setSize("a4p");
-      try { sessionStorage.removeItem("designer.memberCount"); } catch { /* ignore */ }
+      try {
+        sessionStorage.removeItem("designer.memberCount");
+      } catch {
+        /* ignore */
+      }
     } else if (mode === "psd") {
       try {
         const p = consumeStagedPsd();
-        if (!p) { toast.error("PSD data not found"); return; }
-        const layers: Layer[] = (p.layers || []).map((l: any) => {
+        if (!p) {
+          toast.error("PSD data not found");
+          return;
+        }
+        const importedLayers = (p.layers || []) as ImportedPsdLayer[];
+        const layers: Layer[] = importedLayers.map((l) => {
           if (l.type === "text") {
             return {
-              id: l.id || makeId(), name: l.name || "Text", type: "text" as const,
-              x: l.x, y: l.y, width: l.width, height: l.height,
-              rotation: 0, opacity: 1, visible: false, locked: false,
-              text: l.text || "", fontSize: l.fontSize || 24, fontFamily: l.fontFamily || "Inter",
-              fontStyle: "normal", fill: l.fill || "#111827", align: "left" as const,
+              id: l.id || makeId(),
+              name: l.name || "Text",
+              type: "text" as const,
+              x: l.x ?? 0,
+              y: l.y ?? 0,
+              width: l.width ?? 120,
+              height: l.height ?? 32,
+              rotation: l.rotation || 0,
+              opacity: 1,
+              visible: false,
+              locked: false,
+              text: l.text || "",
+              fontSize: l.fontSize || 24,
+              fontFamily: l.fontFamily || "Inter",
+              fontStyle: l.fontStyle || "normal",
+              fill: l.fill || "#111827",
+              align: l.align || ("left" as const),
+              rtl: !!l.rtl,
             };
           }
           return {
-            id: l.id || makeId(), name: l.name || "Layer", type: "image" as const,
-            x: l.x, y: l.y, width: l.width, height: l.height,
-            rotation: 0, opacity: 1, visible: false, locked: false,
-            src: l.src, fit: "stretch" as const, subtype: "asset" as const,
+            id: l.id || makeId(),
+            name: l.name || "Layer",
+            type: "image" as const,
+            x: l.x ?? 0,
+            y: l.y ?? 0,
+            width: l.width ?? 120,
+            height: l.height ?? 120,
+            rotation: 0,
+            opacity: 1,
+            visible: false,
+            locked: false,
+            src: l.src ?? null,
+            fit: "stretch" as const,
+            subtype: "asset" as const,
           };
         });
-        st.loadState({ background: { src: p.background ?? null, width: p.width, height: p.height }, canvasWidth: p.width, canvasHeight: p.height, layers, memberNames: {} });
+        st.loadState({
+          background: { src: p.background ?? null, width: p.width, height: p.height },
+          canvasWidth: p.width,
+          canvasHeight: p.height,
+          layers,
+          memberNames: {},
+        });
         st.setSize("custom", p.width, p.height);
         toast.success(`PSD imported — ${layers.length} layers`);
-      } catch (e: any) {
-        toast.error(`PSD load failed: ${e?.message || e}`);
+      } catch (e: unknown) {
+        toast.error(`PSD load failed: ${e instanceof Error ? e.message : String(e)}`);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load template by id
   useEffect(() => {
     if (!tid) {
       if (!mode) {
-        try { sessionStorage.removeItem("designer.currentTemplateId"); sessionStorage.removeItem("designer.currentTemplateName"); } catch { /* ignore */ }
+        try {
+          sessionStorage.removeItem("designer.currentTemplateId");
+          sessionStorage.removeItem("designer.currentTemplateName");
+        } catch {
+          /* ignore */
+        }
       }
       return;
     }
@@ -207,17 +515,23 @@ function DesignerPage() {
       try {
         const { template, snapshot } = await loadTemplateFn({ data: { templateId: tid } });
         if (cancelled || !template) return;
-        const snap: any = snapshot || {};
+        const snap = (snapshot || {}) as DesignerSnapshot;
         let baseState = {
-          background: snap.background ?? { src: template.background_url ?? null, width: template.width, height: template.height },
-          canvasWidth: template.width, canvasHeight: template.height,
-          layers: snap.layers || [], memberNames: snap.memberNames || {},
+          background: snap.background ?? {
+            src: template.background_url ?? null,
+            width: template.width,
+            height: template.height,
+          },
+          canvasWidth: template.width,
+          canvasHeight: template.height,
+          layers: snap.layers || [],
+          memberNames: snap.memberNames || {},
         };
         if (userMode && entryId) {
           try {
             const raw = localStorage.getItem(`designer.userEdit.${entryId}`);
             if (raw) {
-              const p = JSON.parse(raw);
+              const p = JSON.parse(raw) as DesignerSnapshot;
               baseState = {
                 background: p.background ?? baseState.background,
                 canvasWidth: p.canvasWidth ?? baseState.canvasWidth,
@@ -226,7 +540,9 @@ function DesignerPage() {
                 memberNames: p.memberNames ?? baseState.memberNames,
               };
             }
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
         }
         useDesigner.getState().loadState(baseState);
         try {
@@ -234,21 +550,33 @@ function DesignerPage() {
             sessionStorage.setItem("designer.currentTemplateId", tid);
             sessionStorage.setItem("designer.currentTemplateName", template.name);
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
         if (!userMode) toast.success(`Loaded "${template.name}"`);
-      } catch (e: any) {
-        toast.error(`Template load failed: ${e?.message || e}`);
+      } catch (e: unknown) {
+        toast.error(`Template load failed: ${e instanceof Error ? e.message : String(e)}`);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [tid, loadTemplateFn, userMode, entryId]);
 
   const canvas = mounted ? (
-    <Suspense fallback={<div className="flex-1 flex items-center justify-center text-muted-foreground">Loading canvas…</div>}>
+    <Suspense
+      fallback={
+        <div className="flex-1 flex items-center justify-center text-muted-foreground">
+          Loading canvas…
+        </div>
+      }
+    >
       <DesignerCanvas stageRef={stageRef} />
     </Suspense>
   ) : (
-    <div className="flex-1 flex items-center justify-center text-muted-foreground">Loading canvas…</div>
+    <div className="flex-1 flex items-center justify-center text-muted-foreground">
+      Loading canvas…
+    </div>
   );
 
   return (

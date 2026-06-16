@@ -82,16 +82,86 @@ const OPTIONS: {
 ];
 
 const SYSTEM_FONTS = new Set([
-  "Arial", "Arial Black", "Helvetica", "Times New Roman", "Georgia", "Courier New", "Verdana", "Tahoma", "Trebuchet MS", "Impact",
+  "Arial",
+  "Arial Black",
+  "Helvetica",
+  "Times New Roman",
+  "Georgia",
+  "Courier New",
+  "Verdana",
+  "Tahoma",
+  "Trebuchet MS",
+  "Impact",
+  "Calibri",
+  "Cambria",
+  "Candara",
+  "Century Gothic",
+  "Franklin Gothic Medium",
+  "Garamond",
+  "Gill Sans",
+  "Palatino",
+  "Segoe UI",
 ]);
+const NON_WEB_SAFE_LIBRARY_FONTS = new Set(["Jameel Noori Nastaleeq", "Alvi Nastaleeq"]);
+
+type PsdFontRef = { name?: unknown; family?: unknown };
+type PsdSizedValue = { value?: unknown };
+type PsdTextStyle = {
+  font?: PsdFontRef;
+  fontSize?: unknown | PsdSizedValue;
+  size?: unknown | PsdSizedValue;
+  fontStyle?: unknown;
+  fillColor?: {
+    r?: number;
+    g?: number;
+    b?: number;
+    c?: number;
+    m?: number;
+    y?: number;
+    k?: number;
+  };
+};
+type PsdParagraphStyle = { justification?: unknown; align?: unknown };
+type PsdTextInfo = {
+  text?: string;
+  font?: PsdFontRef;
+  transform?: unknown;
+  style?: PsdTextStyle;
+  styleRuns?: Array<{ style?: PsdTextStyle }>;
+  paragraphStyle?: PsdParagraphStyle;
+  paragraphStyleRuns?: Array<{ style?: PsdParagraphStyle }>;
+};
+type PsdNode = {
+  name?: string;
+  hidden?: boolean;
+  left?: number;
+  top?: number;
+  right?: number;
+  bottom?: number;
+  children?: PsdNode[];
+  text?: PsdTextInfo;
+  canvas?: HTMLCanvasElement;
+};
+
 const FONT_ALIASES: Record<string, string> = {
   ArialMT: "Arial",
   ArialBoldMT: "Arial",
+  ArialItalicMT: "Arial",
+  ArialBoldItalicMT: "Arial",
+  HelveticaNeueLTStdRoman: "Helvetica",
+  HelveticaNeueLTStdBd: "Helvetica",
   HelveticaNeue: "Helvetica",
+  CalibriRegular: "Calibri",
+  CalibriBold: "Calibri",
   TimesNewRomanPSMT: "Times New Roman",
   TimesNewRomanPSBoldMT: "Times New Roman",
+  TimesNewRomanPSItalicMT: "Times New Roman",
+  TimesNewRomanPSBoldItalicMT: "Times New Roman",
   CourierNewPSMT: "Courier New",
   MyriadProRegular: "Myriad Pro",
+  MyriadProBold: "Myriad Pro",
+  NotoNastaliqUrdu: "Noto Nastaliq Urdu",
+  NotoNaskhArabic: "Noto Naskh Arabic",
   JameelNooriNastaleeq: "Jameel Noori Nastaleeq",
   AlviNastaleeq: "Alvi Nastaleeq",
 };
@@ -101,14 +171,91 @@ function normalizePsdFont(raw: unknown) {
   const compact = value.replace(/[\s_-]/g, "");
   if (FONT_ALIASES[value]) return FONT_ALIASES[value];
   if (FONT_ALIASES[compact]) return FONT_ALIASES[compact];
-  return value
-    .replace(/PSMT$/i, "")
-    .replace(/[-_](Regular|Bold|Italic|Medium|Light|Black)$/i, "")
-    .trim() || value;
+  return (
+    value
+      .replace(/PSMT$/i, "")
+      .replace(/[-_](Regular|Bold|Italic|Medium|Light|Black)$/i, "")
+      .trim() || value
+  );
 }
 
 function isKnownDesignerFont(fontFamily: string) {
-  return SYSTEM_FONTS.has(fontFamily) || FONT_LIBRARY.some((font) => font.family === fontFamily);
+  return (
+    SYSTEM_FONTS.has(fontFamily) ||
+    FONT_LIBRARY.some(
+      (font) => font.family === fontFamily && !NON_WEB_SAFE_LIBRARY_FONTS.has(font.family),
+    )
+  );
+}
+
+function fallbackFontFor(fontFamily: string) {
+  const compact = fontFamily.toLowerCase().replace(/[\s_-]/g, "");
+  if (/nastaliq|nastaleeq|urdu|noori|alvi|jameel|faiz/.test(compact)) return "Noto Nastaliq Urdu";
+  if (/arabic|naskh|kufi|ruqaa|amiri|scheherazade|tajawal|cairo/.test(compact)) {
+    return "Noto Naskh Arabic";
+  }
+  if (/mono|courier|code|console/.test(compact)) return "Courier New";
+  if (/serif|times|garamond|georgia|baskerville|cambria/.test(compact)) {
+    return "Times New Roman";
+  }
+  if (/condensed|narrow/.test(compact)) return "Roboto Condensed";
+  return "Arial";
+}
+
+function resolvePsdFont(raw: unknown) {
+  const requested = normalizePsdFont(raw);
+  if (isKnownDesignerFont(requested)) return { family: requested, requested, missing: false };
+  return { family: fallbackFontFor(requested), requested, missing: true };
+}
+
+function sizedValue(input: unknown) {
+  if (input && typeof input === "object" && "value" in input) {
+    return (input as PsdSizedValue).value;
+  }
+  return input;
+}
+
+function getPsdFontSize(style: PsdTextStyle, boundsHeight: number) {
+  const raw = Number(sizedValue(style.fontSize) ?? sizedValue(style.size));
+  if (Number.isFinite(raw) && raw > 0) return Math.max(1, Math.min(500, raw));
+  return Math.max(8, Math.min(200, boundsHeight * 0.72));
+}
+
+function getPsdRotation(textInfo: PsdTextInfo) {
+  const t = Array.isArray(textInfo.transform) ? textInfo.transform : null;
+  if (!t) return 0;
+  const a = Number(t[0]) || 1;
+  const b = Number(t[1]) || 0;
+  const deg = Math.atan2(b, a) * (180 / Math.PI);
+  return Number.isFinite(deg) ? deg : 0;
+}
+
+function getPsdFontStyle(style: PsdTextStyle, layerName: string) {
+  const family = `${style.font?.name || style.font?.family || ""} ${style.fontStyle || ""} ${
+    layerName || ""
+  }`.toLowerCase();
+  const bold = /bold|black|heavy|semibold|demi/.test(family);
+  const italic = /italic|oblique/.test(family);
+  return [bold ? "bold" : "", italic ? "italic" : ""].filter(Boolean).join(" ") || "normal";
+}
+
+function getPsdFillColor(style: PsdTextStyle) {
+  const c = style.fillColor;
+  if (!c) return "#111827";
+  if (typeof c.r === "number" || typeof c.g === "number" || typeof c.b === "number") {
+    return `rgb(${c.r ?? 0},${c.g ?? 0},${c.b ?? 0})`;
+  }
+  if (typeof c.c === "number" || typeof c.m === "number" || typeof c.y === "number") {
+    const cyan = (c.c ?? 0) / 100;
+    const magenta = (c.m ?? 0) / 100;
+    const yellow = (c.y ?? 0) / 100;
+    const black = (c.k ?? 0) / 100;
+    const r = Math.round(255 * (1 - cyan) * (1 - black));
+    const g = Math.round(255 * (1 - magenta) * (1 - black));
+    const b = Math.round(255 * (1 - yellow) * (1 - black));
+    return `rgb(${r},${g},${b})`;
+  }
+  return "#111827";
 }
 
 export function NewTemplateModal({ open, onOpenChange }: Props) {
@@ -118,7 +265,11 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
   const [memberStep, setMemberStep] = useState(false);
   const [customCount, setCustomCount] = useState<string>("4");
   const blankFileRef = useRef<HTMLInputElement>(null);
-  const [blankPending, setBlankPending] = useState<{ src: string; width: number; height: number } | null>(null);
+  const [blankPending, setBlankPending] = useState<{
+    src: string;
+    width: number;
+    height: number;
+  } | null>(null);
 
   const goMode = (mode: NewTemplateMode, members?: MemberCount) => {
     onOpenChange(false);
@@ -168,9 +319,6 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
     setStagedBlank({ ...blankPending, fitMode });
     goMode("blank");
   };
-
-
-
   const handlePsd = async (file: File) => {
     if (!file.name.toLowerCase().endsWith(".psd")) {
       toast.error("Please select a Photoshop .psd file. For JPG/PNG use Blank Template.");
@@ -180,7 +328,9 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
     try {
       const { readPsd } = await import("ag-psd");
       const buf = await file.arrayBuffer().catch(() => {
-        throw new Error("File permission blocked. Move the PSD to Downloads/Files, then select it again.");
+        throw new Error(
+          "File permission blocked. Move the PSD to Downloads/Files, then select it again.",
+        );
       });
       const psd = readPsd(buf, { skipCompositeImageData: false });
 
@@ -199,13 +349,35 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
         }
       }
 
-      type Out = { id: string; name: string; type: "image" | "text"; x: number; y: number; width: number; height: number; src?: string; text?: string; fontSize?: number; fontFamily?: string; fill?: string };
+      type Out = {
+        id: string;
+        name: string;
+        type: "image" | "text";
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        rotation?: number;
+        src?: string;
+        text?: string;
+        fontSize?: number;
+        fontFamily?: string;
+        fontStyle?: string;
+        fill?: string;
+        align?: "left" | "center" | "right";
+        rtl?: boolean;
+        originalFontFamily?: string;
+        fontMissing?: boolean;
+      };
       const out: Out[] = [];
       const missingFonts = new Set<string>();
-      const walk = (nodes: any[] | undefined) => {
+      const walk = (nodes: PsdNode[] | undefined) => {
         if (!nodes) return;
         for (const n of nodes) {
-          if (n.children) { walk(n.children); continue; }
+          if (n.children) {
+            walk(n.children);
+            continue;
+          }
           if (n.hidden) continue;
           const left = n.left ?? 0;
           const top = n.top ?? 0;
@@ -217,77 +389,124 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
           // untouched PSD composite remains the source of truth visually.
           if (n.text?.text) {
             const textInfo = n.text || {};
-            const style = textInfo.style || textInfo.styleRuns?.[0]?.style || {};
-            const fontFamily = normalizePsdFont(style.font?.name || style.font?.family || "Arial");
-            if (!isKnownDesignerFont(fontFamily)) missingFonts.add(fontFamily);
-            const transform = Array.isArray(textInfo.transform) ? textInfo.transform : [1, 0, 0, 1, 0, 0];
-            const scaleY = Math.hypot(Number(transform[1]) || 0, Number(transform[3]) || 1) || 1;
-            const rawFontSize = Number(style.fontSize?.value ?? style.fontSize ?? 24) || 24;
-            const fontSize = Math.max(1, rawFontSize * scaleY);
+            const style = textInfo.styleRuns?.[0]?.style || textInfo.style || {};
+            const resolvedFont = resolvePsdFont(
+              style.font?.name ||
+                style.font?.family ||
+                n.text?.font?.name ||
+                n.text?.font?.family ||
+                "Arial",
+            );
+            if (resolvedFont.missing) missingFonts.add(resolvedFont.requested);
+            const fontSize = getPsdFontSize(style, h);
+            const paragraph =
+              textInfo.paragraphStyle || textInfo.paragraphStyleRuns?.[0]?.style || {};
+            const justification = String(
+              paragraph.justification || paragraph.align || "left",
+            ).toLowerCase();
+            const align = justification.includes("center")
+              ? "center"
+              : justification.includes("right")
+                ? "right"
+                : "left";
             out.push({
               id: crypto.randomUUID(),
               name: n.name || "Text",
               type: "text",
-              x: left, y: top, width: w, height: h,
+              x: left,
+              y: top,
+              width: w,
+              height: h,
               text: n.text.text,
               fontSize,
-              fontFamily,
-              fill: style.fillColor ? `rgb(${style.fillColor.r ?? 0},${style.fillColor.g ?? 0},${style.fillColor.b ?? 0})` : "#111827",
+              fontFamily: resolvedFont.family,
+              fontStyle: getPsdFontStyle(style, n.name || ""),
+              rotation: getPsdRotation(textInfo),
+              align,
+              rtl: resolvedFont.family.includes("Urdu") || resolvedFont.family.includes("Arabic"),
+              originalFontFamily: resolvedFont.requested,
+              fontMissing: resolvedFont.missing,
+              fill: getPsdFillColor(style),
             });
             continue;
           }
           if (!n.canvas) continue;
           try {
             const lc = n.canvas as HTMLCanvasElement;
-            const useJpeg = (lc.width * lc.height) > 800_000;
+            const useJpeg = lc.width * lc.height > 800_000;
             const src = useJpeg ? lc.toDataURL("image/jpeg", 0.85) : lc.toDataURL("image/png");
             out.push({
               id: crypto.randomUUID(),
               name: n.name || "Layer",
               type: "image",
-              x: left, y: top, width: w, height: h, src,
+              x: left,
+              y: top,
+              width: w,
+              height: h,
+              src,
             });
           } catch {
             /* ignore */
           }
         }
       };
-      walk(psd.children);
+      walk(psd.children as unknown as PsdNode[] | undefined);
 
       // Stage in memory — zero storage limits, survives the navigation
       setStagedPsd({ width: W, height: H, background: bgSrc, layers: out });
       try {
         sessionStorage.removeItem("designer.currentTemplateId");
         sessionStorage.removeItem("designer.currentTemplateName");
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
 
       onOpenChange(false);
       setMemberStep(false);
       navigate({ to: "/designer", search: { mode: "psd" } as never });
       if (missingFonts.size > 0) {
-        toast.error(`PSD imported, but missing fonts: ${Array.from(missingFonts).slice(0, 4).join(", ")}. Install/select matching fonts before editing text.`);
+        const names = Array.from(missingFonts);
+        toast.warning(
+          `PSD imported with fallback fonts. Missing: ${names.slice(0, 6).join(", ")}${names.length > 6 ? ` +${names.length - 6} more` : ""}. Text size/scale was preserved; only fallback font changed.`,
+          { duration: 12000 },
+        );
       } else {
         toast.success(`Imported ${out.length} layers from PSD`);
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      toast.error(`PSD import failed: ${e?.message || e}`);
+      toast.error(`PSD import failed: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setParsing(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) { setMemberStep(false); setBlankPending(null); } }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        onOpenChange(v);
+        if (!v) {
+          setMemberStep(false);
+          setBlankPending(null);
+        }
+      }}
+    >
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {blankPending ? "Fit the image to A4?" : memberStep ? "How many members?" : "Create new template"}
+            {blankPending
+              ? "Fit the image to A4?"
+              : memberStep
+                ? "How many members?"
+                : "Create new template"}
           </DialogTitle>
           <DialogDescription>
             {blankPending
               ? "Auto fits proportionally to A4 portrait. Custom keeps the image's original size."
-              : memberStep ? "Pick how many member slots to start with — you can add/remove later." : "Pick a starting point for the Designer."}
+              : memberStep
+                ? "Pick how many member slots to start with — you can add/remove later."
+                : "Pick a starting point for the Designer."}
           </DialogDescription>
         </DialogHeader>
 
@@ -317,10 +536,16 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
         {blankPending ? (
           <div className="space-y-4 pt-1">
             <div className="rounded-lg border bg-muted/30 p-3 flex items-center gap-3">
-              <img src={blankPending.src} alt="Preview" className="h-20 w-20 object-contain bg-white rounded border" />
+              <img
+                src={blankPending.src}
+                alt="Preview"
+                className="h-20 w-20 object-contain bg-white rounded border"
+              />
               <div className="text-xs text-slate-600">
                 <div className="font-semibold text-slate-900">Image loaded</div>
-                <div>{blankPending.width} × {blankPending.height} px</div>
+                <div>
+                  {blankPending.width} × {blankPending.height} px
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -343,12 +568,21 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
                 </div>
               </button>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => setBlankPending(null)} className="w-full">← Choose a different image</Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setBlankPending(null)}
+              className="w-full"
+            >
+              ← Choose a different image
+            </Button>
           </div>
         ) : memberStep ? (
           <div className="space-y-4 pt-1">
             <div>
-              <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">Quick presets</div>
+              <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">
+                Quick presets
+              </div>
               <div className="grid grid-cols-6 gap-2">
                 {([1, 2, 4, 6, 8, 20] as MemberCount[]).map((n) => (
                   <button
@@ -367,7 +601,9 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
               </p>
             </div>
             <div className="border-t pt-3">
-              <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">Customize (1–20)</div>
+              <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">
+                Customize (1–20)
+              </div>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
@@ -407,8 +643,14 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
                   onClick={() => pick(o.id)}
                   className="text-left rounded-lg border p-4 hover:border-slate-400 hover:shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <div className={`${o.tint} w-10 h-10 rounded-lg flex items-center justify-center mb-3`}>
-                    {isPsdLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Icon className="h-5 w-5" />}
+                  <div
+                    className={`${o.tint} w-10 h-10 rounded-lg flex items-center justify-center mb-3`}
+                  >
+                    {isPsdLoading ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Icon className="h-5 w-5" />
+                    )}
                   </div>
                   <div className="font-bold text-sm">{o.title}</div>
                   <div className="text-xs text-slate-500 mt-1 leading-snug">{o.desc}</div>
