@@ -80,7 +80,7 @@ const INK = "#1a1a1a";
 
 function AdminDashboard() {
   const router = useRouter();
-  const { user, role, signOut } = useAuth();
+  const { user, role, loading, signOut } = useAuth();
   const [tab, setTab] = useState<Tab>("overview");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [newTplOpen, setNewTplOpen] = useState(false);
@@ -120,7 +120,15 @@ function AdminDashboard() {
     return () => window.removeEventListener("popstate", onPop);
   }, [router.state.location.href]);
 
-  if (role && role !== "admin") {
+  if (loading || !user || !role) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">
+        Loading…
+      </div>
+    );
+  }
+
+  if (role !== "admin") {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-3 p-6">
         <h1 className="text-xl font-bold">Admin access only</h1>
