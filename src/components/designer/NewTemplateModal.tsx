@@ -418,9 +418,7 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
               rtl: resolvedFont.family.includes("Urdu") || resolvedFont.family.includes("Arabic"),
               originalFontFamily: resolvedFont.requested,
               fontMissing: resolvedFont.missing,
-              fill: style.fillColor
-                ? `rgb(${style.fillColor.r ?? 0},${style.fillColor.g ?? 0},${style.fillColor.b ?? 0})`
-                : "#111827",
+              fill: getPsdFillColor(style),
             });
             continue;
           }
