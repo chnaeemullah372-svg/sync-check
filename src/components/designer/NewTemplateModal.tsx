@@ -201,6 +201,7 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
 
       type Out = { id: string; name: string; type: "image" | "text"; x: number; y: number; width: number; height: number; src?: string; text?: string; fontSize?: number; fontFamily?: string; fill?: string };
       const out: Out[] = [];
+      const missingFonts = new Set<string>();
       const walk = (nodes: any[] | undefined) => {
         if (!nodes) return;
         for (const n of nodes) {
@@ -215,9 +216,14 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
           // Text layer extraction: keep it available for editing, but the
           // untouched PSD composite remains the source of truth visually.
           if (n.text?.text) {
-            const style = n.text.style || {};
-            const fontFamily = style.font?.name || style.font?.family || "Arial";
-            const fontSize = Number(style.fontSize?.value ?? style.fontSize ?? 24) || 24;
+            const textInfo = n.text || {};
+            const style = textInfo.style || textInfo.styleRuns?.[0]?.style || {};
+            const fontFamily = normalizePsdFont(style.font?.name || style.font?.family || "Arial");
+            if (!isKnownDesignerFont(fontFamily)) missingFonts.add(fontFamily);
+            const transform = Array.isArray(textInfo.transform) ? textInfo.transform : [1, 0, 0, 1, 0, 0];
+            const scaleY = Math.hypot(Number(transform[1]) || 0, Number(transform[3]) || 1) || 1;
+            const rawFontSize = Number(style.fontSize?.value ?? style.fontSize ?? 24) || 24;
+            const fontSize = Math.max(1, rawFontSize * scaleY);
             out.push({
               id: crypto.randomUUID(),
               name: n.name || "Text",
@@ -258,7 +264,11 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
       onOpenChange(false);
       setMemberStep(false);
       navigate({ to: "/designer", search: { mode: "psd" } as never });
-      toast.success(`Imported ${out.length} layers from PSD`);
+      if (missingFonts.size > 0) {
+        toast.error(`PSD imported, but missing fonts: ${Array.from(missingFonts).slice(0, 4).join(", ")}. Install/select matching fonts before editing text.`);
+      } else {
+        toast.success(`Imported ${out.length} layers from PSD`);
+      }
     } catch (e: any) {
       console.error(e);
       toast.error(`PSD import failed: ${e?.message || e}`);
