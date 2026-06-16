@@ -150,13 +150,13 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
       const W = psd.width;
       const H = psd.height;
 
-      // Composite background — use JPEG when canvas is big to keep payload small
+      // Preserve the Photoshop composite as the page background. This keeps
+      // the imported file visually identical even when fonts are missing.
       let bgSrc: string | null = null;
       if (psd.canvas) {
         try {
           const c = psd.canvas as HTMLCanvasElement;
-          const useJpeg = (c.width * c.height) > 1_200_000;
-          bgSrc = useJpeg ? c.toDataURL("image/jpeg", 0.85) : c.toDataURL("image/png");
+          bgSrc = c.toDataURL("image/png");
         } catch {
           /* ignore */
         }
@@ -175,17 +175,20 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
           const bottom = n.bottom ?? top;
           const w = Math.max(1, right - left);
           const h = Math.max(1, bottom - top);
-          // Text layer extraction
+          // Text layer extraction: keep it available for editing, but the
+          // untouched PSD composite remains the source of truth visually.
           if (n.text?.text) {
             const style = n.text.style || {};
+            const fontFamily = style.font?.name || style.font?.family || "Arial";
+            const fontSize = Number(style.fontSize?.value ?? style.fontSize ?? 24) || 24;
             out.push({
               id: crypto.randomUUID(),
               name: n.name || "Text",
               type: "text",
               x: left, y: top, width: w, height: h,
               text: n.text.text,
-              fontSize: style.fontSize || 24,
-              fontFamily: style.font?.name || "Arial",
+              fontSize,
+              fontFamily,
               fill: style.fillColor ? `rgb(${style.fillColor.r ?? 0},${style.fillColor.g ?? 0},${style.fillColor.b ?? 0})` : "#111827",
             });
             continue;
