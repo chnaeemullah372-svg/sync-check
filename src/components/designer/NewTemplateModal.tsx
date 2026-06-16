@@ -250,7 +250,11 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
         }
       }
 
-      type Out = { id: string; name: string; type: "image" | "text"; x: number; y: number; width: number; height: number; src?: string; text?: string; fontSize?: number; fontFamily?: string; fill?: string };
+      type Out = {
+        id: string; name: string; type: "image" | "text"; x: number; y: number; width: number; height: number;
+        rotation?: number; src?: string; text?: string; fontSize?: number; fontFamily?: string; fontStyle?: string; fill?: string; align?: "left" | "center" | "right"; rtl?: boolean;
+        originalFontFamily?: string; fontMissing?: boolean;
+      };
       const out: Out[] = [];
       const missingFonts = new Set<string>();
       const walk = (nodes: any[] | undefined) => {
@@ -268,13 +272,13 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
           // untouched PSD composite remains the source of truth visually.
           if (n.text?.text) {
             const textInfo = n.text || {};
-            const style = textInfo.style || textInfo.styleRuns?.[0]?.style || {};
-            const fontFamily = normalizePsdFont(style.font?.name || style.font?.family || "Arial");
-            if (!isKnownDesignerFont(fontFamily)) missingFonts.add(fontFamily);
-            const transform = Array.isArray(textInfo.transform) ? textInfo.transform : [1, 0, 0, 1, 0, 0];
-            const scaleY = Math.hypot(Number(transform[1]) || 0, Number(transform[3]) || 1) || 1;
-            const rawFontSize = Number(style.fontSize?.value ?? style.fontSize ?? 24) || 24;
-            const fontSize = Math.max(1, rawFontSize * scaleY);
+            const style = textInfo.styleRuns?.[0]?.style || textInfo.style || {};
+            const resolvedFont = resolvePsdFont(style.font?.name || style.font?.family || n.text?.font?.name || n.text?.font?.family || "Arial");
+            if (resolvedFont.missing) missingFonts.add(resolvedFont.requested);
+            const fontSize = getPsdFontSize(style, h);
+            const paragraph = textInfo.paragraphStyle || textInfo.paragraphStyleRuns?.[0]?.style || {};
+            const justification = String(paragraph.justification || paragraph.align || "left").toLowerCase();
+            const align = justification.includes("center") ? "center" : justification.includes("right") ? "right" : "left";
             out.push({
               id: crypto.randomUUID(),
               name: n.name || "Text",
@@ -282,7 +286,13 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
               x: left, y: top, width: w, height: h,
               text: n.text.text,
               fontSize,
-              fontFamily,
+              fontFamily: resolvedFont.family,
+              fontStyle: getPsdFontStyle(style, n.name || ""),
+              rotation: getPsdRotation(textInfo),
+              align,
+              rtl: resolvedFont.family.includes("Urdu") || resolvedFont.family.includes("Arabic"),
+              originalFontFamily: resolvedFont.requested,
+              fontMissing: resolvedFont.missing,
               fill: style.fillColor ? `rgb(${style.fillColor.r ?? 0},${style.fillColor.g ?? 0},${style.fillColor.b ?? 0})` : "#111827",
             });
             continue;
