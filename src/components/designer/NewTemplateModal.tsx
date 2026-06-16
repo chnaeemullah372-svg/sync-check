@@ -82,10 +82,59 @@ const OPTIONS: {
 ];
 
 const SYSTEM_FONTS = new Set([
-  "Arial", "Arial Black", "Helvetica", "Times New Roman", "Georgia", "Courier New", "Verdana", "Tahoma", "Trebuchet MS", "Impact",
-  "Calibri", "Cambria", "Candara", "Century Gothic", "Franklin Gothic Medium", "Garamond", "Gill Sans", "Palatino", "Segoe UI",
+  "Arial",
+  "Arial Black",
+  "Helvetica",
+  "Times New Roman",
+  "Georgia",
+  "Courier New",
+  "Verdana",
+  "Tahoma",
+  "Trebuchet MS",
+  "Impact",
+  "Calibri",
+  "Cambria",
+  "Candara",
+  "Century Gothic",
+  "Franklin Gothic Medium",
+  "Garamond",
+  "Gill Sans",
+  "Palatino",
+  "Segoe UI",
 ]);
 const NON_WEB_SAFE_LIBRARY_FONTS = new Set(["Jameel Noori Nastaleeq", "Alvi Nastaleeq"]);
+
+type PsdFontRef = { name?: unknown; family?: unknown };
+type PsdSizedValue = { value?: unknown };
+type PsdTextStyle = {
+  font?: PsdFontRef;
+  fontSize?: unknown | PsdSizedValue;
+  size?: unknown | PsdSizedValue;
+  fontStyle?: unknown;
+  fillColor?: { r?: number; g?: number; b?: number };
+};
+type PsdParagraphStyle = { justification?: unknown; align?: unknown };
+type PsdTextInfo = {
+  text?: string;
+  font?: PsdFontRef;
+  transform?: unknown;
+  style?: PsdTextStyle;
+  styleRuns?: Array<{ style?: PsdTextStyle }>;
+  paragraphStyle?: PsdParagraphStyle;
+  paragraphStyleRuns?: Array<{ style?: PsdParagraphStyle }>;
+};
+type PsdNode = {
+  name?: string;
+  hidden?: boolean;
+  left?: number;
+  top?: number;
+  right?: number;
+  bottom?: number;
+  children?: PsdNode[];
+  text?: PsdTextInfo;
+  canvas?: HTMLCanvasElement;
+};
+
 const FONT_ALIASES: Record<string, string> = {
   ArialMT: "Arial",
   ArialBoldMT: "Arial",
@@ -114,20 +163,29 @@ function normalizePsdFont(raw: unknown) {
   const compact = value.replace(/[\s_-]/g, "");
   if (FONT_ALIASES[value]) return FONT_ALIASES[value];
   if (FONT_ALIASES[compact]) return FONT_ALIASES[compact];
-  return value
-    .replace(/PSMT$/i, "")
-    .replace(/[-_](Regular|Bold|Italic|Medium|Light|Black)$/i, "")
-    .trim() || value;
+  return (
+    value
+      .replace(/PSMT$/i, "")
+      .replace(/[-_](Regular|Bold|Italic|Medium|Light|Black)$/i, "")
+      .trim() || value
+  );
 }
 
 function isKnownDesignerFont(fontFamily: string) {
-  return SYSTEM_FONTS.has(fontFamily) || FONT_LIBRARY.some((font) => font.family === fontFamily && !NON_WEB_SAFE_LIBRARY_FONTS.has(font.family));
+  return (
+    SYSTEM_FONTS.has(fontFamily) ||
+    FONT_LIBRARY.some(
+      (font) => font.family === fontFamily && !NON_WEB_SAFE_LIBRARY_FONTS.has(font.family),
+    )
+  );
 }
 
 function fallbackFontFor(fontFamily: string) {
   const compact = fontFamily.toLowerCase().replace(/[\s_-]/g, "");
   if (/nastaliq|nastaleeq|urdu|noori|alvi|jameel|faiz/.test(compact)) return "Noto Nastaliq Urdu";
-  if (/arabic|naskh|kufi|ruqaa|amiri|scheherazade|tajawal|cairo/.test(compact)) return "Noto Naskh Arabic";
+  if (/arabic|naskh|kufi|ruqaa|amiri|scheherazade|tajawal|cairo/.test(compact)) {
+    return "Noto Naskh Arabic";
+  }
   if (/mono|courier|code|console/.test(compact)) return "Courier New";
   if (/serif|times|garamond|georgia|baskerville|cambria/.test(compact)) return "Times New Roman";
   if (/condensed|narrow/.test(compact)) return "Roboto Condensed";
@@ -140,14 +198,19 @@ function resolvePsdFont(raw: unknown) {
   return { family: fallbackFontFor(requested), requested, missing: true };
 }
 
-function getPsdFontSize(style: any, boundsHeight: number) {
-  const raw = Number(style?.fontSize?.value ?? style?.fontSize ?? style?.size?.value ?? style?.size);
+function sizedValue(input: unknown) {
+  if (input && typeof input === "object" && "value" in input) return (input as PsdSizedValue).value;
+  return input;
+}
+
+function getPsdFontSize(style: PsdTextStyle, boundsHeight: number) {
+  const raw = Number(sizedValue(style.fontSize) ?? sizedValue(style.size));
   if (Number.isFinite(raw) && raw > 0) return Math.max(1, Math.min(500, raw));
   return Math.max(8, Math.min(200, boundsHeight * 0.72));
 }
 
-function getPsdRotation(textInfo: any) {
-  const t = Array.isArray(textInfo?.transform) ? textInfo.transform : null;
+function getPsdRotation(textInfo: PsdTextInfo) {
+  const t = Array.isArray(textInfo.transform) ? textInfo.transform : null;
   if (!t) return 0;
   const a = Number(t[0]) || 1;
   const b = Number(t[1]) || 0;
@@ -155,8 +218,8 @@ function getPsdRotation(textInfo: any) {
   return Number.isFinite(deg) ? deg : 0;
 }
 
-function getPsdFontStyle(style: any, layerName: string) {
-  const family = `${style?.font?.name || style?.font?.family || ""} ${style?.fontStyle || ""} ${layerName || ""}`.toLowerCase();
+function getPsdFontStyle(style: PsdTextStyle, layerName: string) {
+  const family = `${style.font?.name || style.font?.family || ""} ${style.fontStyle || ""} ${layerName || ""}`.toLowerCase();
   const bold = /bold|black|heavy|semibold|demi/.test(family);
   const italic = /italic|oblique/.test(family);
   return [bold ? "bold" : "", italic ? "italic" : ""].filter(Boolean).join(" ") || "normal";
