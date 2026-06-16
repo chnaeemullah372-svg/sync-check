@@ -187,7 +187,9 @@ function fallbackFontFor(fontFamily: string) {
     return "Noto Naskh Arabic";
   }
   if (/mono|courier|code|console/.test(compact)) return "Courier New";
-  if (/serif|times|garamond|georgia|baskerville|cambria/.test(compact)) return "Times New Roman";
+  if (/serif|times|garamond|georgia|baskerville|cambria/.test(compact)) {
+    return "Times New Roman";
+  }
   if (/condensed|narrow/.test(compact)) return "Roboto Condensed";
   return "Arial";
 }
@@ -199,7 +201,9 @@ function resolvePsdFont(raw: unknown) {
 }
 
 function sizedValue(input: unknown) {
-  if (input && typeof input === "object" && "value" in input) return (input as PsdSizedValue).value;
+  if (input && typeof input === "object" && "value" in input) {
+    return (input as PsdSizedValue).value;
+  }
   return input;
 }
 
@@ -219,7 +223,9 @@ function getPsdRotation(textInfo: PsdTextInfo) {
 }
 
 function getPsdFontStyle(style: PsdTextStyle, layerName: string) {
-  const family = `${style.font?.name || style.font?.family || ""} ${style.fontStyle || ""} ${layerName || ""}`.toLowerCase();
+  const family = `${style.font?.name || style.font?.family || ""} ${style.fontStyle || ""} ${
+    layerName || ""
+  }`.toLowerCase();
   const bold = /bold|black|heavy|semibold|demi/.test(family);
   const italic = /italic|oblique/.test(family);
   return [bold ? "bold" : "", italic ? "italic" : ""].filter(Boolean).join(" ") || "normal";
