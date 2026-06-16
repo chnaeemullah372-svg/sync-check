@@ -172,9 +172,9 @@ function DesignerPage() {
             return {
               id: l.id || makeId(), name: l.name || "Text", type: "text" as const,
               x: l.x, y: l.y, width: l.width, height: l.height,
-              rotation: 0, opacity: 1, visible: false, locked: false,
+              rotation: l.rotation || 0, opacity: 1, visible: false, locked: false,
               text: l.text || "", fontSize: l.fontSize || 24, fontFamily: l.fontFamily || "Inter",
-              fontStyle: "normal", fill: l.fill || "#111827", align: "left" as const,
+              fontStyle: l.fontStyle || "normal", fill: l.fill || "#111827", align: l.align || "left" as const, rtl: !!l.rtl,
             };
           }
           return {
