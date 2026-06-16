@@ -91,7 +91,15 @@ function AiSettingsPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  if (role && role !== "admin") {
+  if (loading || !user || !role) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">
+        Loading…
+      </div>
+    );
+  }
+
+  if (role !== "admin") {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <h1 className="text-xl font-bold">Admin access only</h1>
