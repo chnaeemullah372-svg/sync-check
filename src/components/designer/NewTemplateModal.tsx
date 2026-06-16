@@ -326,7 +326,8 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
       setMemberStep(false);
       navigate({ to: "/designer", search: { mode: "psd" } as never });
       if (missingFonts.size > 0) {
-        toast.error(`PSD imported, but missing fonts: ${Array.from(missingFonts).slice(0, 4).join(", ")}. Install/select matching fonts before editing text.`);
+        const names = Array.from(missingFonts);
+        toast.warning(`PSD imported with fallback fonts. Missing: ${names.slice(0, 6).join(", ")}${names.length > 6 ? ` +${names.length - 6} more` : ""}. Text size/scale was preserved; only fallback font changed.`, { duration: 12000 });
       } else {
         toast.success(`Imported ${out.length} layers from PSD`);
       }
