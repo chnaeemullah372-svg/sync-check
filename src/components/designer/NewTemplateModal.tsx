@@ -220,6 +220,10 @@ function fallbackFontFor(fontFamily: string) {
 }
 
 function resolvePsdFont(raw: unknown) {
+  const directCustomFamily = resolveCustomFontFamily(String(raw || ""));
+  if (directCustomFamily) {
+    return { family: directCustomFamily, requested: String(raw || directCustomFamily), missing: false };
+  }
   const requested = normalizePsdFont(raw);
   const customFamily = resolveCustomFontFamily(requested);
   if (customFamily) return { family: customFamily, requested, missing: false };
