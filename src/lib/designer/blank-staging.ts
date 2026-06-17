@@ -9,15 +9,24 @@ export type StagedBlank = {
 };
 
 let staged: StagedBlank | null = null;
+let lastConsumed: { payload: StagedBlank; at: number } | null = null;
+const CONSUME_TTL_MS = 5000;
 
 export function setStagedBlank(b: StagedBlank) {
   staged = b;
+  lastConsumed = null;
 }
 
 export function consumeStagedBlank(): StagedBlank | null {
-  const b = staged;
-  staged = null;
-  return b;
+  if (staged) {
+    lastConsumed = { payload: staged, at: Date.now() };
+    staged = null;
+    return lastConsumed.payload;
+  }
+  if (lastConsumed && Date.now() - lastConsumed.at < CONSUME_TTL_MS) {
+    return lastConsumed.payload;
+  }
+  return null;
 }
 
 export function hasStagedBlank() {
