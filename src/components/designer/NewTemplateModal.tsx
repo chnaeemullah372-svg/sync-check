@@ -103,7 +103,10 @@ const SYSTEM_FONTS = new Set([
   "Palatino",
   "Segoe UI",
 ]);
-const NON_WEB_SAFE_LIBRARY_FONTS = new Set(["Jameel Noori Nastaleeq", "Alvi Nastaleeq"]);
+// Fonts listed in FONT_LIBRARY but NOT loaded by the global <link> tag and
+// NOT available as an uploaded custom font. Treat as missing -> use fallback.
+// (Jameel Noori Nastaleeq is now served via cdnfonts in __root.tsx.)
+const NON_WEB_SAFE_LIBRARY_FONTS = new Set(["Alvi Nastaleeq"]);
 
 type PsdFontRef = { name?: unknown; family?: unknown };
 type PsdSizedValue = { value?: unknown };

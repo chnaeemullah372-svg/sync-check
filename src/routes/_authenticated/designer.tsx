@@ -330,9 +330,13 @@ function DesignerPage() {
 
   const loadTemplateFn = useServerFn(loadTemplate);
 
-  // Mode presets
+  // Mode presets — guarded so React strict-mode double-invoke does not
+  // re-consume the staged PSD (which would null it and toast "PSD data not found").
+  const modeAppliedRef = useRef(false);
   useEffect(() => {
     if (tid || !mode) return;
+    if (modeAppliedRef.current) return;
+    modeAppliedRef.current = true;
     const st = useDesigner.getState();
     if (mode === "card") {
       st.loadState({
