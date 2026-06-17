@@ -404,9 +404,13 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
         rtl?: boolean;
         originalFontFamily?: string;
         fontMissing?: boolean;
+        autoFit?: boolean;
+        scaleXText?: number;
       };
       const out: Out[] = [];
       const missingFonts = new Set<string>();
+      await loadCustomFontsOnce();
+      await document.fonts?.ready;
       const walk = (nodes: PsdNode[] | undefined) => {
         if (!nodes) return;
         for (const n of nodes) {
@@ -434,7 +438,8 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
                 "Arial",
             );
             if (resolvedFont.missing) missingFonts.add(resolvedFont.requested);
-            const fontSize = getPsdFontSize(style, h);
+            const transformScale = getTextTransformScale(textInfo);
+            const fontSize = getPsdFontSize(style, h) * transformScale.sy;
             const paragraph =
               textInfo.paragraphStyle || textInfo.paragraphStyleRuns?.[0]?.style || {};
             const justification = String(
@@ -462,6 +467,8 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
               rtl: resolvedFont.family.includes("Urdu") || resolvedFont.family.includes("Arabic"),
               originalFontFamily: resolvedFont.requested,
               fontMissing: resolvedFont.missing,
+              autoFit: true,
+              scaleXText: getPsdTextScale(style) * transformScale.sx,
               fill: getPsdFillColor(style),
             });
             continue;
