@@ -211,6 +211,12 @@ function AdminDashboard() {
             >
               <Sparkles className="h-4 w-4" /> AI Settings
             </Link>
+            <Link
+              to="/admin/fonts"
+              className="shrink-0 flex items-center gap-2 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-white/50 hover:text-white border-b-2 border-transparent"
+            >
+              <Sparkles className="h-4 w-4" /> Fonts
+            </Link>
           </div>
         </nav>
       </header>

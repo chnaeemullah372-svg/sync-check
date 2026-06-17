@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { setStagedPsd } from "@/lib/designer/psd-staging";
 import { setStagedBlank } from "@/lib/designer/blank-staging";
 import { FONT_LIBRARY } from "@/lib/designer/fonts";
+import { isCustomFontAvailable } from "@/hooks/use-custom-fonts";
 import {
   Dialog,
   DialogContent,
@@ -180,12 +181,19 @@ function normalizePsdFont(raw: unknown) {
 }
 
 function isKnownDesignerFont(fontFamily: string) {
+  if (isCustomFontAvailable(fontFamily)) return true;
   return (
     SYSTEM_FONTS.has(fontFamily) ||
     FONT_LIBRARY.some(
       (font) => font.family === fontFamily && !NON_WEB_SAFE_LIBRARY_FONTS.has(font.family),
     )
   );
+}
+
+function resolveCustomFontFamily(requested: string): string | null {
+  // If the requested PSD font matches an uploaded custom font (by family or alias),
+  // return the actual family name to use instead of the fallback.
+  return isCustomFontAvailable(requested) ? requested : null;
 }
 
 function fallbackFontFor(fontFamily: string) {
