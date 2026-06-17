@@ -65,6 +65,10 @@ export interface TextLayer extends BaseLayer {
   align: "left" | "center" | "right";
   fontStyle: string;
   rtl?: boolean;
+  /** Original PSD font family if the font was substituted because it is not installed. */
+  originalFontFamily?: string;
+  /** True when the imported font was not available and a fallback was applied. */
+  fontMissing?: boolean;
 }
 
 export interface ImageLayer extends BaseLayer {

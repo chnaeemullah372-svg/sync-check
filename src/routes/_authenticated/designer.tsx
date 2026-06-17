@@ -51,6 +51,8 @@ type ImportedPsdLayer = {
   fill?: string;
   align?: "left" | "center" | "right";
   rtl?: boolean;
+  originalFontFamily?: string;
+  fontMissing?: boolean;
 };
 
 type DesignerSnapshot = {
@@ -92,11 +94,10 @@ function memberStarterLayers(count: number = 1): Layer[] {
 
   const COL = {
     photo: { x: 18, w: 70 },
-    name: { x: 100, w: 180 },
-    father: { x: 286, w: 160 },
-    cnic: { x: 452, w: 138 },
-    dob: { x: 596, w: 96 },
-    relation: { x: 698, w: 80 },
+    name: { x: 100, w: 220 },
+    cnic: { x: 328, w: 188 },
+    dob: { x: 524, w: 110 },
+    relation: { x: 642, w: 134 },
   };
   const HEADER_Y = 86;
   const HEADER_H = 30;
@@ -162,7 +163,6 @@ function memberStarterLayers(count: number = 1): Layer[] {
   const headers: Array<[string, { x: number; w: number }]> = [
     ["Photo", COL.photo],
     ["Name", COL.name],
-    ["Father Name", COL.father],
     ["CNIC", COL.cnic],
     ["D.O.B", COL.dob],
     ["Relation", COL.relation],
@@ -250,27 +250,6 @@ function memberStarterLayers(count: number = 1): Layer[] {
         fill: "#0F172A",
         align: "left",
         fieldKey: "name",
-        slotIndex: i,
-      } as Layer,
-      {
-        id: makeId(),
-        name: `Father Name ${i}`,
-        type: "text",
-        x: COL.father.x + 4,
-        y: y + ROW_H / 2 - 11,
-        width: COL.father.w - 8,
-        height: 22,
-        rotation: 0,
-        opacity: 1,
-        visible: true,
-        locked: false,
-        text: "Father Name",
-        fontSize: 13,
-        fontFamily: "Arial",
-        fontStyle: "normal",
-        fill: "#1F2937",
-        align: "left",
-        fieldKey: "father_name",
         slotIndex: i,
       } as Layer,
       {
@@ -453,7 +432,7 @@ function DesignerPage() {
               height: l.height ?? 32,
               rotation: l.rotation || 0,
               opacity: 1,
-              visible: false,
+              visible: true,
               locked: false,
               text: l.text || "",
               fontSize: l.fontSize || 24,
@@ -462,6 +441,8 @@ function DesignerPage() {
               fill: l.fill || "#111827",
               align: l.align || ("left" as const),
               rtl: !!l.rtl,
+              originalFontFamily: l.originalFontFamily,
+              fontMissing: !!l.fontMissing,
             };
           }
           return {
@@ -474,7 +455,7 @@ function DesignerPage() {
             height: l.height ?? 120,
             rotation: 0,
             opacity: 1,
-            visible: false,
+            visible: true,
             locked: false,
             src: l.src ?? null,
             fit: "stretch" as const,
