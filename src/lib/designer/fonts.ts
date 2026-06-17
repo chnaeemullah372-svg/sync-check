@@ -13,7 +13,6 @@ export const FONT_LIBRARY: FontDef[] = [
   // English — Sans
   { family: "Inter", label: "Inter", category: "sans" },
   { family: "Roboto", label: "Roboto", category: "sans" },
-  { family: "Noto Sans Arabic", label: "Noto Sans Arabic", category: "arabic", preview: "Sample 12345", rtl: true },
   { family: "Bahnschrift", label: "Bahnschrift", category: "sans" },
   { family: "Poppins", label: "Poppins", category: "sans" },
   { family: "Montserrat", label: "Montserrat", category: "sans" },
