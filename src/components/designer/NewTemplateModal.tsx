@@ -240,6 +240,23 @@ function getPsdFontSize(style: PsdTextStyle, boundsHeight: number) {
   return Math.max(8, Math.min(200, boundsHeight * 0.72));
 }
 
+function getPsdTextScale(style: PsdTextStyle) {
+  const raw = Number(sizedValue(style.horizontalScale));
+  if (!Number.isFinite(raw) || raw <= 0) return 1;
+  return Math.max(0.2, Math.min(3, raw > 10 ? raw / 100 : raw));
+}
+
+function getTextTransformScale(textInfo: PsdTextInfo) {
+  const t = Array.isArray(textInfo.transform) ? textInfo.transform.map(Number) : null;
+  if (!t || t.length < 4) return { sx: 1, sy: 1 };
+  const sx = Math.hypot(t[0] || 1, t[1] || 0);
+  const sy = Math.hypot(t[2] || 0, t[3] || 1);
+  return {
+    sx: Number.isFinite(sx) && sx > 0 ? sx : 1,
+    sy: Number.isFinite(sy) && sy > 0 ? sy : 1,
+  };
+}
+
 function getPsdRotation(textInfo: PsdTextInfo) {
   const t = Array.isArray(textInfo.transform) ? textInfo.transform : null;
   if (!t) return 0;
