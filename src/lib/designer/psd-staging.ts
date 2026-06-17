@@ -1,6 +1,7 @@
 // In-memory PSD handoff between NewTemplateModal and /designer route.
-// Avoids sessionStorage (5MB) and IndexedDB structured-clone quotas entirely.
-// Lives only for the SPA session — that's all we need for navigation.
+// Survives React Strict Mode double-mount: once consumed, the same payload
+// is returned for a short TTL so the second invocation does not see `null`
+// and toast "PSD data not found".
 
 export type StagedPsd = {
   width: number;
@@ -10,17 +11,31 @@ export type StagedPsd = {
 };
 
 let staged: StagedPsd | null = null;
+let lastConsumed: { payload: StagedPsd; at: number } | null = null;
+const CONSUME_TTL_MS = 5000;
 
 export function setStagedPsd(p: StagedPsd) {
   staged = p;
+  lastConsumed = null;
 }
 
 export function consumeStagedPsd(): StagedPsd | null {
-  const p = staged;
-  staged = null;
-  return p;
+  if (staged) {
+    lastConsumed = { payload: staged, at: Date.now() };
+    staged = null;
+    return lastConsumed.payload;
+  }
+  if (lastConsumed && Date.now() - lastConsumed.at < CONSUME_TTL_MS) {
+    return lastConsumed.payload;
+  }
+  return null;
 }
 
 export function hasStagedPsd() {
   return staged !== null;
+}
+
+export function clearStagedPsd() {
+  staged = null;
+  lastConsumed = null;
 }
