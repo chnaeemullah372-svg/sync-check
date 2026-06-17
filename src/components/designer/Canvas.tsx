@@ -33,6 +33,23 @@ function fitRect(iw: number, ih: number, bw: number, bh: number, mode: ImageLaye
   const h = bw / ir; return { x: 0, y: (bh - h) / 2, w: bw, h };
 }
 
+function fitTextFontSize(layer: TextLayer) {
+  if (!layer.autoFit || typeof document === "undefined") return layer.fontSize;
+  const lines = String(layer.text || " ").split(/\r?\n/);
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return layer.fontSize;
+  let size = Math.max(6, layer.fontSize);
+  const style = layer.fontStyle && layer.fontStyle !== "normal" ? `${layer.fontStyle} ` : "";
+  const fits = (s: number) => {
+    ctx.font = `${style}${s}px ${layer.fontFamily}`;
+    const maxLine = Math.max(...lines.map((line) => ctx.measureText(line || " ").width));
+    return maxLine <= layer.width * 0.98 && lines.length * s * 1.2 <= layer.height * 1.08;
+  };
+  while (size > 6 && !fits(size)) size -= 1;
+  return size;
+}
+
 interface NodeProps<T extends Layer> {
   layer: T;
   isSelected: boolean;
@@ -80,12 +97,14 @@ function ImageNode({ layer, isSelected, onSelect, onChange, onDragEnd, nodeRef, 
 function TextNode({ layer, onSelect, onChange, onDragEnd, onDblClick, nodeRef }: NodeProps<TextLayer>) {
   const ref = useRef<Konva.Text>(null);
   useEffect(() => { nodeRef(ref.current); return () => nodeRef(null); }, [nodeRef]);
+  const renderedFontSize = fitTextFontSize(layer);
   return (
     <Text
       ref={ref}
       text={layer.text} x={layer.x} y={layer.y} width={layer.width} height={layer.height}
-      fontSize={layer.fontSize} fontFamily={layer.fontFamily} fontStyle={layer.fontStyle}
+      fontSize={renderedFontSize} fontFamily={layer.fontFamily} fontStyle={layer.fontStyle}
       fill={layer.fill} align={layer.align} rotation={layer.rotation}
+      wrap="none" ellipsis verticalAlign="middle" direction={layer.rtl ? "rtl" : "ltr"}
       opacity={layer.opacity} visible={layer.visible}
       listening={!layer.locked}
       draggable={!layer.locked}
@@ -95,11 +114,10 @@ function TextNode({ layer, onSelect, onChange, onDragEnd, onDblClick, nodeRef }:
       onTransformEnd={() => {
         const node = ref.current; if (!node) return;
         const sx = node.scaleX(), sy = node.scaleY();
-        const avg = (sx + sy) / 2;
         node.scaleX(1); node.scaleY(1);
         onChange({ x: node.x(), y: node.y(),
           width: Math.max(20, layer.width * sx), height: Math.max(10, layer.height * sy),
-          fontSize: Math.max(6, layer.fontSize * avg), rotation: node.rotation() });
+          rotation: node.rotation() });
       }}
     />
   );
