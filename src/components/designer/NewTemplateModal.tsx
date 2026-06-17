@@ -3,7 +3,11 @@ import { useNavigate } from "@tanstack/react-router";
 import { setStagedPsd } from "@/lib/designer/psd-staging";
 import { setStagedBlank } from "@/lib/designer/blank-staging";
 import { FONT_LIBRARY } from "@/lib/designer/fonts";
-import { isCustomFontAvailable } from "@/hooks/use-custom-fonts";
+import {
+  isCustomFontAvailable,
+  loadCustomFontsOnce,
+  resolveCustomFontFamily,
+} from "@/hooks/use-custom-fonts";
 import {
   Dialog,
   DialogContent,
@@ -115,6 +119,8 @@ type PsdTextStyle = {
   fontSize?: unknown | PsdSizedValue;
   size?: unknown | PsdSizedValue;
   fontStyle?: unknown;
+  horizontalScale?: unknown;
+  verticalScale?: unknown;
   fillColor?: {
     r?: number;
     g?: number;
@@ -166,6 +172,12 @@ const FONT_ALIASES: Record<string, string> = {
   MyriadProBold: "Myriad Pro",
   NotoNastaliqUrdu: "Noto Nastaliq Urdu",
   NotoNaskhArabic: "Noto Naskh Arabic",
+  MyriadArabic: "Noto Sans Arabic",
+  MyriadArabicRegular: "Noto Sans Arabic",
+  AcuminConcept: "Roboto Condensed",
+  AcuminConceptRegular: "Roboto Condensed",
+  BahnschriftSemiBold: "Roboto Condensed",
+  Bahnschrift: "Roboto Condensed",
   JameelNooriNastaleeq: "Jameel Noori Nastaleeq",
   AlviNastaleeq: "Alvi Nastaleeq",
 };
@@ -215,6 +227,8 @@ function fallbackFontFor(fontFamily: string) {
 
 function resolvePsdFont(raw: unknown) {
   const requested = normalizePsdFont(raw);
+  const customFamily = resolveCustomFontFamily(requested);
+  if (customFamily) return { family: customFamily, requested, missing: false };
   if (isKnownDesignerFont(requested)) return { family: requested, requested, missing: false };
   return { family: fallbackFontFor(requested), requested, missing: true };
 }
