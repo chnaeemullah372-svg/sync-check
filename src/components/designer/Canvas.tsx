@@ -438,14 +438,29 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
             })}
             <Transformer
               ref={transformerRef}
-              rotateEnabled keepRatio={false} shouldOverdrawWholeArea
-              anchorSize={12}
+              rotateEnabled
+              keepRatio={false}
+              shouldOverdrawWholeArea
+              ignoreStroke
+              flipEnabled={false}
+              centeredScaling={false}
+              rotationSnaps={[0, 45, 90, 135, 180, 225, 270, 315]}
+              rotationSnapTolerance={4}
+              anchorSize={14}
               anchorStroke="#00C4CC"
               anchorFill="#ffffff"
-              anchorCornerRadius={6}
+              anchorStrokeWidth={2}
+              anchorCornerRadius={8}
               borderStroke="#00C4CC"
               borderStrokeWidth={1.5}
-              rotateAnchorOffset={28}
+              borderDash={[]}
+              rotateAnchorOffset={32}
+              padding={2}
+              enabledAnchors={[
+                "top-left", "top-center", "top-right",
+                "middle-left", "middle-right",
+                "bottom-left", "bottom-center", "bottom-right",
+              ]}
               boundBoxFunc={(oldBox, newBox) => {
                 if (newBox.width < 5 || newBox.height < 5) return oldBox;
                 return newBox;
