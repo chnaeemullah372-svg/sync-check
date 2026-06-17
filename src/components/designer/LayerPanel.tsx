@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import {
   Eye, EyeOff, Lock, Unlock, Trash2, Copy, ChevronUp, ChevronDown,
   ChevronsUp, ChevronsDown, Type, Image as ImageIcon, Square, Minus,
-  ChevronRight, Folder, Users, Save, Ungroup, PanelRightClose,
+  ChevronRight, Folder, Users, Save, Ungroup, PanelRightClose, AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -391,6 +391,14 @@ function LayerRow({
         </button>
 
         <Icon className="w-3.5 h-3.5" />
+        {layer.type === "text" && (layer as any).fontMissing ? (
+          <span
+            title={`Font missing: ${(layer as any).originalFontFamily || "unknown"} — using ${(layer as any).fontFamily}`}
+            className="text-amber-600 shrink-0"
+          >
+            <AlertTriangle className="w-3.5 h-3.5" />
+          </span>
+        ) : null}
         {editing ? (
           <Input
             autoFocus
