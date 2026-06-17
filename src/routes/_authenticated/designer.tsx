@@ -53,6 +53,8 @@ type ImportedPsdLayer = {
   rtl?: boolean;
   originalFontFamily?: string;
   fontMissing?: boolean;
+  autoFit?: boolean;
+  scaleXText?: number;
 };
 
 type DesignerSnapshot = {
@@ -447,6 +449,8 @@ function DesignerPage() {
               rtl: !!l.rtl,
               originalFontFamily: l.originalFontFamily,
               fontMissing: !!l.fontMissing,
+              autoFit: l.autoFit ?? true,
+              scaleXText: l.scaleXText ?? 1,
             };
           }
           return {
