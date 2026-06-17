@@ -11,8 +11,9 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { AuthProvider } from "../hooks/use-auth";
+import { AuthProvider, useAuth } from "../hooks/use-auth";
 import { Toaster } from "@/components/ui/sonner";
+import { useCustomFonts } from "@/hooks/use-custom-fonts";
 
 function NotFoundComponent() {
   return (
@@ -119,12 +120,19 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+function CustomFontsLoader() {
+  const { user } = useAuth();
+  useCustomFonts(!!user);
+  return null;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <CustomFontsLoader />
         <Outlet />
         <Toaster richColors position="top-right" />
       </AuthProvider>

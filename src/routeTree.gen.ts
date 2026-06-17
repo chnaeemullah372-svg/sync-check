@@ -17,6 +17,7 @@ import { Route as AuthenticatedDesignerRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedUserIndexRouteImport } from './routes/_authenticated/user.index'
 import { Route as AuthenticatedUserHistoryRouteImport } from './routes/_authenticated/user.history'
 import { Route as AuthenticatedCardAdminRouteImport } from './routes/_authenticated/card.admin'
+import { Route as AuthenticatedAdminFontsRouteImport } from './routes/_authenticated/admin.fonts'
 import { Route as AuthenticatedAdminAiSettingsRouteImport } from './routes/_authenticated/admin.ai-settings'
 import { Route as AuthenticatedUserTemplatesTidRouteImport } from './routes/_authenticated/user.templates.$tid'
 import { Route as AuthenticatedUserEntriesEntryIdRouteImport } from './routes/_authenticated/user.entries.$entryId'
@@ -61,6 +62,11 @@ const AuthenticatedCardAdminRoute = AuthenticatedCardAdminRouteImport.update({
   path: '/card/admin',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAdminFontsRoute = AuthenticatedAdminFontsRouteImport.update({
+  id: '/admin/fonts',
+  path: '/admin/fonts',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAdminAiSettingsRoute =
   AuthenticatedAdminAiSettingsRouteImport.update({
     id: '/admin/ai-settings',
@@ -86,6 +92,7 @@ export interface FileRoutesByFullPath {
   '/designer': typeof AuthenticatedDesignerRoute
   '/user': typeof AuthenticatedUserRouteWithChildren
   '/admin/ai-settings': typeof AuthenticatedAdminAiSettingsRoute
+  '/admin/fonts': typeof AuthenticatedAdminFontsRoute
   '/card/admin': typeof AuthenticatedCardAdminRoute
   '/user/history': typeof AuthenticatedUserHistoryRoute
   '/user/': typeof AuthenticatedUserIndexRoute
@@ -97,6 +104,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/designer': typeof AuthenticatedDesignerRoute
   '/admin/ai-settings': typeof AuthenticatedAdminAiSettingsRoute
+  '/admin/fonts': typeof AuthenticatedAdminFontsRoute
   '/card/admin': typeof AuthenticatedCardAdminRoute
   '/user/history': typeof AuthenticatedUserHistoryRoute
   '/user': typeof AuthenticatedUserIndexRoute
@@ -111,6 +119,7 @@ export interface FileRoutesById {
   '/_authenticated/designer': typeof AuthenticatedDesignerRoute
   '/_authenticated/user': typeof AuthenticatedUserRouteWithChildren
   '/_authenticated/admin/ai-settings': typeof AuthenticatedAdminAiSettingsRoute
+  '/_authenticated/admin/fonts': typeof AuthenticatedAdminFontsRoute
   '/_authenticated/card/admin': typeof AuthenticatedCardAdminRoute
   '/_authenticated/user/history': typeof AuthenticatedUserHistoryRoute
   '/_authenticated/user/': typeof AuthenticatedUserIndexRoute
@@ -125,6 +134,7 @@ export interface FileRouteTypes {
     | '/designer'
     | '/user'
     | '/admin/ai-settings'
+    | '/admin/fonts'
     | '/card/admin'
     | '/user/history'
     | '/user/'
@@ -136,6 +146,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/designer'
     | '/admin/ai-settings'
+    | '/admin/fonts'
     | '/card/admin'
     | '/user/history'
     | '/user'
@@ -149,6 +160,7 @@ export interface FileRouteTypes {
     | '/_authenticated/designer'
     | '/_authenticated/user'
     | '/_authenticated/admin/ai-settings'
+    | '/_authenticated/admin/fonts'
     | '/_authenticated/card/admin'
     | '/_authenticated/user/history'
     | '/_authenticated/user/'
@@ -220,6 +232,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCardAdminRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin/fonts': {
+      id: '/_authenticated/admin/fonts'
+      path: '/admin/fonts'
+      fullPath: '/admin/fonts'
+      preLoaderRoute: typeof AuthenticatedAdminFontsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/admin/ai-settings': {
       id: '/_authenticated/admin/ai-settings'
       path: '/admin/ai-settings'
@@ -265,6 +284,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDesignerRoute: typeof AuthenticatedDesignerRoute
   AuthenticatedUserRoute: typeof AuthenticatedUserRouteWithChildren
   AuthenticatedAdminAiSettingsRoute: typeof AuthenticatedAdminAiSettingsRoute
+  AuthenticatedAdminFontsRoute: typeof AuthenticatedAdminFontsRoute
   AuthenticatedCardAdminRoute: typeof AuthenticatedCardAdminRoute
 }
 
@@ -272,6 +292,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDesignerRoute: AuthenticatedDesignerRoute,
   AuthenticatedUserRoute: AuthenticatedUserRouteWithChildren,
   AuthenticatedAdminAiSettingsRoute: AuthenticatedAdminAiSettingsRoute,
+  AuthenticatedAdminFontsRoute: AuthenticatedAdminFontsRoute,
   AuthenticatedCardAdminRoute: AuthenticatedCardAdminRoute,
 }
 
