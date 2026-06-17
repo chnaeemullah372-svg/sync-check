@@ -293,6 +293,45 @@ export type Database = {
           },
         ]
       }
+      fonts: {
+        Row: {
+          aliases: string[]
+          created_at: string
+          family: string
+          file_path: string
+          format: string
+          id: string
+          language: string | null
+          name: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          aliases?: string[]
+          created_at?: string
+          family: string
+          file_path: string
+          format?: string
+          id?: string
+          language?: string | null
+          name: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          aliases?: string[]
+          created_at?: string
+          family?: string
+          file_path?: string
+          format?: string
+          id?: string
+          language?: string | null
+          name?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
       member_slots: {
         Row: {
           group_json: Json
