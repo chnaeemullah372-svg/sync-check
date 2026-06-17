@@ -266,6 +266,13 @@ function AdminDashboard() {
             >
               <Sparkles className="h-5 w-5" /> AI Settings
             </Link>
+            <Link
+              to="/admin/fonts"
+              onClick={() => setDrawerOpen(false)}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-white/70 hover:bg-white/10"
+            >
+              <Sparkles className="h-5 w-5" /> Fonts
+            </Link>
           </nav>
           <div className="p-3 border-t border-white/10">
             <button

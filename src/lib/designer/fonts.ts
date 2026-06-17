@@ -52,6 +52,7 @@ export const FONT_LIBRARY: FontDef[] = [
   { family: "Alvi Nastaleeq", label: "علوی نستعلیق", category: "urdu", preview: "نمونہ متن اردو", rtl: true },
 
   // Arabic
+  { family: "Noto Sans Arabic", label: "Noto Sans Arabic", category: "arabic", preview: "نموذج 12345", rtl: true },
   { family: "Noto Naskh Arabic", label: "نسخ عربي", category: "arabic", preview: "نموذج النص", rtl: true },
   { family: "Amiri", label: "أميري", category: "arabic", preview: "نموذج النص", rtl: true },
   { family: "Scheherazade New", label: "شهرزاد", category: "arabic", preview: "نموذج النص", rtl: true },

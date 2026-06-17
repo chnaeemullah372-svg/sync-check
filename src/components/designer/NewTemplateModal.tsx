@@ -3,7 +3,11 @@ import { useNavigate } from "@tanstack/react-router";
 import { setStagedPsd } from "@/lib/designer/psd-staging";
 import { setStagedBlank } from "@/lib/designer/blank-staging";
 import { FONT_LIBRARY } from "@/lib/designer/fonts";
-import { isCustomFontAvailable } from "@/hooks/use-custom-fonts";
+import {
+  isCustomFontAvailable,
+  loadCustomFontsOnce,
+  resolveCustomFontFamily,
+} from "@/hooks/use-custom-fonts";
 import {
   Dialog,
   DialogContent,
@@ -115,6 +119,8 @@ type PsdTextStyle = {
   fontSize?: unknown | PsdSizedValue;
   size?: unknown | PsdSizedValue;
   fontStyle?: unknown;
+  horizontalScale?: unknown;
+  verticalScale?: unknown;
   fillColor?: {
     r?: number;
     g?: number;
@@ -166,6 +172,12 @@ const FONT_ALIASES: Record<string, string> = {
   MyriadProBold: "Myriad Pro",
   NotoNastaliqUrdu: "Noto Nastaliq Urdu",
   NotoNaskhArabic: "Noto Naskh Arabic",
+  MyriadArabic: "Noto Sans Arabic",
+  MyriadArabicRegular: "Noto Sans Arabic",
+  AcuminConcept: "Roboto Condensed",
+  AcuminConceptRegular: "Roboto Condensed",
+  BahnschriftSemiBold: "Roboto Condensed",
+  Bahnschrift: "Roboto Condensed",
   JameelNooriNastaleeq: "Jameel Noori Nastaleeq",
   AlviNastaleeq: "Alvi Nastaleeq",
 };
@@ -193,12 +205,6 @@ function isKnownDesignerFont(fontFamily: string) {
   );
 }
 
-function resolveCustomFontFamily(requested: string): string | null {
-  // If the requested PSD font matches an uploaded custom font (by family or alias),
-  // return the actual family name to use instead of the fallback.
-  return isCustomFontAvailable(requested) ? requested : null;
-}
-
 function fallbackFontFor(fontFamily: string) {
   const compact = fontFamily.toLowerCase().replace(/[\s_-]/g, "");
   if (/nastaliq|nastaleeq|urdu|noori|alvi|jameel|faiz/.test(compact)) return "Noto Nastaliq Urdu";
@@ -214,7 +220,13 @@ function fallbackFontFor(fontFamily: string) {
 }
 
 function resolvePsdFont(raw: unknown) {
+  const directCustomFamily = resolveCustomFontFamily(String(raw || ""));
+  if (directCustomFamily) {
+    return { family: directCustomFamily, requested: String(raw || directCustomFamily), missing: false };
+  }
   const requested = normalizePsdFont(raw);
+  const customFamily = resolveCustomFontFamily(requested);
+  if (customFamily) return { family: customFamily, requested, missing: false };
   if (isKnownDesignerFont(requested)) return { family: requested, requested, missing: false };
   return { family: fallbackFontFor(requested), requested, missing: true };
 }
@@ -230,6 +242,23 @@ function getPsdFontSize(style: PsdTextStyle, boundsHeight: number) {
   const raw = Number(sizedValue(style.fontSize) ?? sizedValue(style.size));
   if (Number.isFinite(raw) && raw > 0) return Math.max(1, Math.min(500, raw));
   return Math.max(8, Math.min(200, boundsHeight * 0.72));
+}
+
+function getPsdTextScale(style: PsdTextStyle) {
+  const raw = Number(sizedValue(style.horizontalScale));
+  if (!Number.isFinite(raw) || raw <= 0) return 1;
+  return Math.max(0.2, Math.min(3, raw > 10 ? raw / 100 : raw));
+}
+
+function getTextTransformScale(textInfo: PsdTextInfo) {
+  const t = Array.isArray(textInfo.transform) ? textInfo.transform.map(Number) : null;
+  if (!t || t.length < 4) return { sx: 1, sy: 1 };
+  const sx = Math.hypot(t[0] || 1, t[1] || 0);
+  const sy = Math.hypot(t[2] || 0, t[3] || 1);
+  return {
+    sx: Number.isFinite(sx) && sx > 0 ? sx : 1,
+    sy: Number.isFinite(sy) && sy > 0 ? sy : 1,
+  };
 }
 
 function getPsdRotation(textInfo: PsdTextInfo) {
@@ -379,9 +408,13 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
         rtl?: boolean;
         originalFontFamily?: string;
         fontMissing?: boolean;
+        autoFit?: boolean;
+        scaleXText?: number;
       };
       const out: Out[] = [];
       const missingFonts = new Set<string>();
+      await loadCustomFontsOnce();
+      await document.fonts?.ready;
       const walk = (nodes: PsdNode[] | undefined) => {
         if (!nodes) return;
         for (const n of nodes) {
@@ -409,7 +442,8 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
                 "Arial",
             );
             if (resolvedFont.missing) missingFonts.add(resolvedFont.requested);
-            const fontSize = getPsdFontSize(style, h);
+            const transformScale = getTextTransformScale(textInfo);
+            const fontSize = getPsdFontSize(style, h) * transformScale.sy;
             const paragraph =
               textInfo.paragraphStyle || textInfo.paragraphStyleRuns?.[0]?.style || {};
             const justification = String(
@@ -437,6 +471,8 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
               rtl: resolvedFont.family.includes("Urdu") || resolvedFont.family.includes("Arabic"),
               originalFontFamily: resolvedFont.requested,
               fontMissing: resolvedFont.missing,
+              autoFit: true,
+              scaleXText: getPsdTextScale(style) * transformScale.sx,
               fill: getPsdFillColor(style),
             });
             continue;
