@@ -205,12 +205,6 @@ function isKnownDesignerFont(fontFamily: string) {
   );
 }
 
-function resolveCustomFontFamily(requested: string): string | null {
-  // If the requested PSD font matches an uploaded custom font (by family or alias),
-  // return the actual family name to use instead of the fallback.
-  return isCustomFontAvailable(requested) ? requested : null;
-}
-
 function fallbackFontFor(fontFamily: string) {
   const compact = fontFamily.toLowerCase().replace(/[\s_-]/g, "");
   if (/nastaliq|nastaleeq|urdu|noori|alvi|jameel|faiz/.test(compact)) return "Noto Nastaliq Urdu";
