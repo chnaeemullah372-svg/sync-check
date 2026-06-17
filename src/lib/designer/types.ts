@@ -69,6 +69,10 @@ export interface TextLayer extends BaseLayer {
   originalFontFamily?: string;
   /** True when the imported font was not available and a fallback was applied. */
   fontMissing?: boolean;
+  /** Keep PSD text inside its imported box when replacement fonts have different metrics. */
+  autoFit?: boolean;
+  /** Extra horizontal metric scale from the PSD font/run. */
+  scaleXText?: number;
 }
 
 export interface ImageLayer extends BaseLayer {
