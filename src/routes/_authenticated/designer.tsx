@@ -51,6 +51,8 @@ type ImportedPsdLayer = {
   fill?: string;
   align?: "left" | "center" | "right";
   rtl?: boolean;
+  originalFontFamily?: string;
+  fontMissing?: boolean;
 };
 
 type DesignerSnapshot = {
@@ -453,7 +455,7 @@ function DesignerPage() {
               height: l.height ?? 32,
               rotation: l.rotation || 0,
               opacity: 1,
-              visible: false,
+              visible: true,
               locked: false,
               text: l.text || "",
               fontSize: l.fontSize || 24,
@@ -462,6 +464,8 @@ function DesignerPage() {
               fill: l.fill || "#111827",
               align: l.align || ("left" as const),
               rtl: !!l.rtl,
+              originalFontFamily: l.originalFontFamily,
+              fontMissing: !!l.fontMissing,
             };
           }
           return {
@@ -474,7 +478,7 @@ function DesignerPage() {
             height: l.height ?? 120,
             rotation: 0,
             opacity: 1,
-            visible: false,
+            visible: true,
             locked: false,
             src: l.src ?? null,
             fit: "stretch" as const,
