@@ -41,6 +41,14 @@ export function listCustomFontFamilies() {
   return Array.from(families);
 }
 
+export async function loadCustomFontsOnce() {
+  const { data, error } = await supabase
+    .from("fonts")
+    .select("id,name,family,file_path,format,aliases,language");
+  if (error || !data) return;
+  for (const row of data as CustomFontRow[]) await injectFont(row);
+}
+
 async function injectFont(row: CustomFontRow) {
   if (loaded.has(row.family)) return;
   const { data, error } = await supabase.storage
@@ -80,11 +88,8 @@ export function useCustomFonts(enabled: boolean) {
     if (!enabled) return;
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase
-        .from("fonts")
-        .select("id,name,family,file_path,format,aliases,language");
-      if (cancelled || error || !data) return;
-      for (const row of data as CustomFontRow[]) await injectFont(row);
+      await loadCustomFontsOnce();
+      if (cancelled) return;
     })();
     return () => {
       cancelled = true;
