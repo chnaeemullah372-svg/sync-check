@@ -13,6 +13,8 @@ export const FONT_LIBRARY: FontDef[] = [
   // English — Sans
   { family: "Inter", label: "Inter", category: "sans" },
   { family: "Roboto", label: "Roboto", category: "sans" },
+  { family: "Noto Sans Arabic", label: "Noto Sans Arabic", category: "arabic", preview: "Sample 12345", rtl: true },
+  { family: "Bahnschrift", label: "Bahnschrift", category: "sans" },
   { family: "Poppins", label: "Poppins", category: "sans" },
   { family: "Montserrat", label: "Montserrat", category: "sans" },
   { family: "Raleway", label: "Raleway", category: "sans" },
@@ -52,6 +54,7 @@ export const FONT_LIBRARY: FontDef[] = [
   { family: "Alvi Nastaleeq", label: "علوی نستعلیق", category: "urdu", preview: "نمونہ متن اردو", rtl: true },
 
   // Arabic
+  { family: "Noto Sans Arabic", label: "Noto Sans Arabic", category: "arabic", preview: "نموذج 12345", rtl: true },
   { family: "Noto Naskh Arabic", label: "نسخ عربي", category: "arabic", preview: "نموذج النص", rtl: true },
   { family: "Amiri", label: "أميري", category: "arabic", preview: "نموذج النص", rtl: true },
   { family: "Scheherazade New", label: "شهرزاد", category: "arabic", preview: "نموذج النص", rtl: true },
