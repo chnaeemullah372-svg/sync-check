@@ -471,7 +471,7 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
               rtl: resolvedFont.family.includes("Urdu") || resolvedFont.family.includes("Arabic"),
               originalFontFamily: resolvedFont.requested,
               fontMissing: resolvedFont.missing,
-              autoFit: true,
+              autoFit: false,
               scaleXText: getPsdTextScale(style) * transformScale.sx,
               fill: getPsdFillColor(style),
             });

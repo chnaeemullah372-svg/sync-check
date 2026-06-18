@@ -34,7 +34,17 @@ function fitRect(iw: number, ih: number, bw: number, bh: number, mode: ImageLaye
 }
 
 function fitTextFontSize(layer: TextLayer) {
-  if (!layer.autoFit || typeof document === "undefined") return layer.fontSize;
+  if (
+    layer.originalFontFamily ||
+    layer.fontMissing === true ||
+    layer.autoFit === false ||
+    typeof document === "undefined"
+  ) {
+    return layer.fontSize;
+  }
+
+  if (!layer.autoFit) return layer.fontSize;
+
   const lines = String(layer.text || " ").split(/\r?\n/);
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
