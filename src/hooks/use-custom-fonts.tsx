@@ -37,6 +37,14 @@ export function resolveCustomFontFamily(family: string) {
   return aliasToFamily.get(normalizeKey(family)) ?? null;
 }
 
+/** Register a locally-available font family (e.g. user-uploaded) so the PSD
+ *  importer recognises it as available instead of substituting a fallback. */
+export function registerCustomFontFamily(family: string) {
+  families.add(family);
+  registry.add(normalizeKey(family));
+  aliasToFamily.set(normalizeKey(family), family);
+}
+
 export function listCustomFontFamilies() {
   return Array.from(families);
 }
