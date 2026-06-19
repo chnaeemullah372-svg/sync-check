@@ -67,6 +67,7 @@ interface NodeProps<T extends Layer> {
   onDblClick?: () => void;
   nodeRef: (n: Konva.Node | null) => void;
   passive?: boolean;
+  getActiveAnchor?: () => string;
 }
 
 function ImageNode({ layer, isSelected, onSelect, onChange, onDragEnd, nodeRef, passive }: NodeProps<ImageLayer>) {
@@ -102,7 +103,7 @@ function ImageNode({ layer, isSelected, onSelect, onChange, onDragEnd, nodeRef, 
   );
 }
 
-function TextNode({ layer, onSelect, onChange, onDragEnd, onDblClick, nodeRef }: NodeProps<TextLayer>) {
+function TextNode({ layer, onSelect, onChange, onDragEnd, onDblClick, nodeRef, getActiveAnchor }: NodeProps<TextLayer>) {
   const ref = useRef<Konva.Text>(null);
   useEffect(() => { nodeRef(ref.current); return () => nodeRef(null); }, [nodeRef]);
   const renderedFontSize = fitTextFontSize(layer);
@@ -123,9 +124,18 @@ function TextNode({ layer, onSelect, onChange, onDragEnd, onDblClick, nodeRef }:
         const node = ref.current; if (!node) return;
         const sx = node.scaleX(), sy = node.scaleY();
         node.scaleX(1); node.scaleY(1);
-        onChange({ x: node.x(), y: node.y(),
+        const anchor = getActiveAnchor?.() ?? "";
+        const isCorner =
+          (anchor.startsWith("top") || anchor.startsWith("bottom")) &&
+          (anchor.endsWith("left") || anchor.endsWith("right"));
+        const next: Partial<TextLayer> = { x: node.x(), y: node.y(),
           width: Math.max(20, layer.width * sx), height: Math.max(10, layer.height * sy),
-          rotation: node.rotation() });
+          rotation: node.rotation() };
+        if (isCorner) {
+          const factor = Math.abs(sy) || Math.abs(sx) || 1;
+          next.fontSize = Math.max(6, Math.round(renderedFontSize * factor));
+        }
+        onChange(next);
       }}
     />
   );
@@ -188,7 +198,7 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
     selectedId, selectedIds, selectLayer, selectIds, updateLayer, translateSlot, userZoom, setUserZoom,
     duplicateLayer, deleteLayer, addLayer,
   } = useDesigner();
-  const { activeTool, setActiveTool, toolColor, setToolColor, openSheet, setOpenSheet } = useDock();
+  const { activeTool, setActiveTool, toolColor, setToolColor, openSheet, setOpenSheet, editTextId, requestEditText } = useDock();
   const bgImg = useHTMLImage(background.src);
   const transformerRef = useRef<Konva.Transformer>(null);
   const nodeMap = useRef<Map<string, Konva.Node>>(new Map());
@@ -291,6 +301,8 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
     if (n) nodeMap.current.set(id, n);
     else nodeMap.current.delete(id);
   };
+
+  const getActiveAnchor = () => transformerRef.current?.getActiveAnchor() ?? "";
 
   const handleDragEnd = (layer: Layer) => (newX: number, newY: number) => {
     const dx = newX - layer.x;
