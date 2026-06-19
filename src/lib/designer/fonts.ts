@@ -13,8 +13,12 @@ export const FONT_LIBRARY: FontDef[] = [
   // English — Sans
   { family: "Inter", label: "Inter", category: "sans" },
   { family: "Roboto", label: "Roboto", category: "sans" },
+  { family: "Open Sans", label: "Open Sans", category: "sans" },
+  { family: "Lato", label: "Lato", category: "sans" },
   { family: "Poppins", label: "Poppins", category: "sans" },
   { family: "Montserrat", label: "Montserrat", category: "sans" },
+  { family: "Arial", label: "Arial", category: "sans" },
+  { family: "Arial Rounded MT Bold", label: "Arial Rounded MT Bold", category: "sans" },
   { family: "Raleway", label: "Raleway", category: "sans" },
   { family: "Nunito", label: "Nunito", category: "sans" },
   { family: "Source Sans 3", label: "Source Sans", category: "sans" },
