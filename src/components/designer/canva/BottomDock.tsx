@@ -20,7 +20,7 @@ interface DockButton {
 }
 
 export function BottomDock() {
-  const { setOpenSheet, toolbarOpen, setToolbarOpen } = useDock();
+  const { setOpenSheet, toolbarOpen, setToolbarOpen, requestEditText } = useDock();
   const {
     selectedIds, selectedId, layers, addLayer, canvasWidth, canvasHeight,
     deleteLayer, duplicateLayer, updateLayer, groupAsMember,
@@ -90,10 +90,7 @@ export function BottomDock() {
     const slot = selected.slotIndex && selected.slotIndex > 0;
     if (selected.type === "text") {
       items = [
-        { id: "edit", label: "Edit", icon: Edit3, action: () => {
-          const t = prompt("Edit text", (selected as any).text || "");
-          if (t !== null) updateLayer(selected.id, { text: t } as any);
-        } },
+        { id: "edit", label: "Edit", icon: Edit3, action: () => requestEditText(selected.id) },
         { id: "font", label: "Font", icon: Type, sheet: "font" },
         { id: "size", label: "Size", icon: Sliders, sheet: "fontSize" },
         { id: "color", label: "Color", icon: Palette, sheet: "color" },

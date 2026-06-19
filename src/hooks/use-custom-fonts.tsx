@@ -37,6 +37,12 @@ export function resolveCustomFontFamily(family: string) {
   return aliasToFamily.get(normalizeKey(family)) ?? null;
 }
 
+export function registerCustomFontFamily(family: string) {
+  families.add(family);
+  registry.add(normalizeKey(family));
+  aliasToFamily.set(normalizeKey(family), family);
+}
+
 export function listCustomFontFamilies() {
   return Array.from(families);
 }

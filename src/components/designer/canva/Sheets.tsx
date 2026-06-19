@@ -1,10 +1,16 @@
-import { useState } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 import { CanvaSheet } from "./Sheet";
 import { useDock } from "./dockState";
 import { useDesigner, makeId } from "@/lib/designer/store";
 import type { TextLayer } from "@/lib/designer/types";
 
 import { FONT_LIBRARY, FONT_CATEGORIES, DEFAULT_COLORS } from "@/lib/designer/fonts";
+import {
+  addUserFont,
+  getUserFontsSnapshot,
+  removeUserFont,
+  subscribeUserFonts,
+} from "@/lib/designer/user-fonts";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,15 +18,23 @@ import { Button } from "@/components/ui/button";
 import {
   AlignLeft, AlignCenter, AlignRight, Bold, Italic, Underline as UnderlineIcon,
   Eye, EyeOff, Lock, Unlock, Trash2, ChevronUp, ChevronDown, Layers as LayersIcon, ChevronRight,
+  Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+
+function useUserFonts() {
+  return useSyncExternalStore(subscribeUserFonts, getUserFontsSnapshot, getUserFontsSnapshot);
+}
 
 export function FontSheet() {
   const { openSheet, setOpenSheet } = useDock();
   const { layers, selectedIds, updateLayer } = useDesigner();
   const [cat, setCat] = useState<string>("all");
   const [q, setQ] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const userFonts = useUserFonts();
   const textLayers = selectedIds
     .map((id) => layers.find((l) => l.id === id))
     .filter((l): l is TextLayer => !!l && l.type === "text");
@@ -29,12 +43,43 @@ export function FontSheet() {
     (f) => (cat === "all" || f.category === cat) &&
            (q.trim() === "" || f.label.toLowerCase().includes(q.toLowerCase()) || f.family.toLowerCase().includes(q.toLowerCase())),
   );
+  const filteredUserFonts = userFonts.filter(
+    (f) => q.trim() === "" || f.toLowerCase().includes(q.toLowerCase()),
+  );
+  const isRtlFamily = (family: string) => /urdu|arabic|nastaliq|nastaleeq|naskh|noori/i.test(family);
   const apply = (family: string, rtl?: boolean) => {
     textLayers.forEach((l) => updateLayer(l.id, { fontFamily: family, rtl } as any));
   };
+  const onPickFile = async (file: File | undefined) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const family = await addUserFont(file);
+      apply(family, isRtlFamily(family));
+      toast.success(`Font "${family}" added`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not add font");
+    } finally {
+      setUploading(false);
+    }
+  };
   return (
-    <CanvaSheet open={openSheet === "font"} onClose={() => setOpenSheet(null)} title="Font" height="65vh">
+    <CanvaSheet open={openSheet === "font"} onClose={() => setOpenSheet(null)} title="Font" height="70vh">
       <div className="p-3 space-y-3">
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2"
+          className="hidden"
+          onChange={(e) => {
+            void onPickFile(e.target.files?.[0]);
+            e.currentTarget.value = "";
+          }}
+        />
+        <Button onClick={() => fileRef.current?.click()} disabled={uploading} className="w-full h-12 gap-2">
+          <Upload className="h-4 w-4" />
+          {uploading ? "Adding font…" : "Upload font (.ttf .otf .woff .woff2)"}
+        </Button>
         <Input placeholder="Search fonts…" value={q} onChange={(e) => setQ(e.target.value)} />
         <div className="flex gap-1 overflow-x-auto no-scrollbar -mx-1 px-1">
           <button onClick={() => setCat("all")}
@@ -48,6 +93,34 @@ export function FontSheet() {
             </button>
           ))}
         </div>
+        {filteredUserFonts.length > 0 && cat === "all" && (
+          <div className="space-y-1">
+            <div className="text-[11px] font-bold uppercase text-muted-foreground px-1">Your uploaded fonts</div>
+            {filteredUserFonts.map((f) => {
+              const sel = current === f;
+              const rtl = isRtlFamily(f);
+              return (
+                <div key={f}
+                  className={cn("w-full px-3 py-3 rounded-lg border flex items-center justify-between gap-3",
+                    sel ? "border-primary bg-primary/5" : "border-transparent hover:bg-accent")}>
+                  <button onClick={() => apply(f, rtl)} className="flex-1 text-left min-w-0">
+                    <span className="truncate block text-xl" style={{ fontFamily: f, direction: rtl ? "rtl" : "ltr" }}>
+                      {rtl ? "نمونہ متن — " : ""}{f}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => { void removeUserFont(f); toast.success(`Removed "${f}"`); }}
+                    className="h-8 w-8 grid place-items-center rounded-full hover:bg-destructive/10 text-destructive shrink-0"
+                    aria-label="Remove font"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              );
+            })}
+            <div className="border-t my-2" />
+          </div>
+        )}
         <div className="space-y-1">
           {fonts.map((f) => {
             const sel = current === f.family;

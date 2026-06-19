@@ -67,6 +67,7 @@ interface NodeProps<T extends Layer> {
   onDblClick?: () => void;
   nodeRef: (n: Konva.Node | null) => void;
   passive?: boolean;
+  getActiveAnchor?: () => string;
 }
 
 function ImageNode({ layer, isSelected, onSelect, onChange, onDragEnd, nodeRef, passive }: NodeProps<ImageLayer>) {
@@ -102,7 +103,7 @@ function ImageNode({ layer, isSelected, onSelect, onChange, onDragEnd, nodeRef, 
   );
 }
 
-function TextNode({ layer, onSelect, onChange, onDragEnd, onDblClick, nodeRef }: NodeProps<TextLayer>) {
+function TextNode({ layer, onSelect, onChange, onDragEnd, onDblClick, nodeRef, getActiveAnchor }: NodeProps<TextLayer>) {
   const ref = useRef<Konva.Text>(null);
   useEffect(() => { nodeRef(ref.current); return () => nodeRef(null); }, [nodeRef]);
   const renderedFontSize = fitTextFontSize(layer);
@@ -123,9 +124,18 @@ function TextNode({ layer, onSelect, onChange, onDragEnd, onDblClick, nodeRef }:
         const node = ref.current; if (!node) return;
         const sx = node.scaleX(), sy = node.scaleY();
         node.scaleX(1); node.scaleY(1);
-        onChange({ x: node.x(), y: node.y(),
+        const anchor = getActiveAnchor?.() ?? "";
+        const isCorner =
+          (anchor.startsWith("top") || anchor.startsWith("bottom")) &&
+          (anchor.endsWith("left") || anchor.endsWith("right"));
+        const next: Partial<TextLayer> = { x: node.x(), y: node.y(),
           width: Math.max(20, layer.width * sx), height: Math.max(10, layer.height * sy),
-          rotation: node.rotation() });
+          rotation: node.rotation() };
+        if (isCorner) {
+          const factor = Math.abs(sy) || Math.abs(sx) || 1;
+          next.fontSize = Math.max(6, Math.round(renderedFontSize * factor));
+        }
+        onChange(next);
       }}
     />
   );
@@ -188,7 +198,7 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
     selectedId, selectedIds, selectLayer, selectIds, updateLayer, translateSlot, userZoom, setUserZoom,
     duplicateLayer, deleteLayer, addLayer,
   } = useDesigner();
-  const { activeTool, setActiveTool, toolColor, setToolColor, openSheet, setOpenSheet } = useDock();
+  const { activeTool, setActiveTool, toolColor, setToolColor, openSheet, setOpenSheet, editTextId, requestEditText } = useDock();
   const bgImg = useHTMLImage(background.src);
   const transformerRef = useRef<Konva.Transformer>(null);
   const nodeMap = useRef<Map<string, Konva.Node>>(new Map());
@@ -291,6 +301,8 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
     if (n) nodeMap.current.set(id, n);
     else nodeMap.current.delete(id);
   };
+
+  const getActiveAnchor = () => transformerRef.current?.getActiveAnchor() ?? "";
 
   const handleDragEnd = (layer: Layer) => (newX: number, newY: number) => {
     const dx = newX - layer.x;
@@ -408,7 +420,15 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
     if (!editingText) return;
     updateLayer(editingText.id, { text: editingText.value } as any);
     setEditingText(null);
+    requestEditText(null);
   };
+
+  useEffect(() => {
+    if (!editTextId) return;
+    const layer = layers.find((l): l is TextLayer => l.id === editTextId && l.type === "text");
+    if (layer) beginEditText(layer);
+    requestEditText(null);
+  }, [editTextId, layers, requestEditText]);
 
   return (
     <div ref={containerRef} className="flex-1 overflow-auto bg-muted/40 flex items-center justify-center p-4 relative" style={{ touchAction: "pan-x pan-y", cursor: activeTool === "rect" ? "crosshair" : activeTool === "fill" ? "cell" : activeTool === "eyedropper" ? "crosshair" : "default" }}>
@@ -457,7 +477,7 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
                 nodeRef: setNodeRef(layer.id),
                 passive: passiveBackground,
               };
-              if (layer.type === "text") return <TextNode key={layer.id} layer={layer} {...common} onChange={common.onChange as any} onDblClick={() => beginEditText(layer)} />;
+              if (layer.type === "text") return <TextNode key={layer.id} layer={layer} {...common} onChange={common.onChange as any} onDblClick={() => beginEditText(layer)} getActiveAnchor={getActiveAnchor} />;
               if (layer.type === "image") return <ImageNode key={layer.id} layer={layer} {...common} onChange={common.onChange as any} />;
               if (layer.type === "line") return <LineNode key={layer.id} layer={layer} {...common} onChange={common.onChange as any} />;
               return <BoxNode key={layer.id} layer={layer} {...common} onChange={common.onChange as any} />;
