@@ -420,7 +420,15 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
     if (!editingText) return;
     updateLayer(editingText.id, { text: editingText.value } as any);
     setEditingText(null);
+    requestEditText(null);
   };
+
+  useEffect(() => {
+    if (!editTextId) return;
+    const layer = layers.find((l): l is TextLayer => l.id === editTextId && l.type === "text");
+    if (layer) beginEditText(layer);
+    requestEditText(null);
+  }, [editTextId, layers, requestEditText]);
 
   return (
     <div ref={containerRef} className="flex-1 overflow-auto bg-muted/40 flex items-center justify-center p-4 relative" style={{ touchAction: "pan-x pan-y", cursor: activeTool === "rect" ? "crosshair" : activeTool === "fill" ? "cell" : activeTool === "eyedropper" ? "crosshair" : "default" }}>
@@ -469,7 +477,7 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
                 nodeRef: setNodeRef(layer.id),
                 passive: passiveBackground,
               };
-              if (layer.type === "text") return <TextNode key={layer.id} layer={layer} {...common} onChange={common.onChange as any} onDblClick={() => beginEditText(layer)} />;
+              if (layer.type === "text") return <TextNode key={layer.id} layer={layer} {...common} onChange={common.onChange as any} onDblClick={() => beginEditText(layer)} getActiveAnchor={getActiveAnchor} />;
               if (layer.type === "image") return <ImageNode key={layer.id} layer={layer} {...common} onChange={common.onChange as any} />;
               if (layer.type === "line") return <LineNode key={layer.id} layer={layer} {...common} onChange={common.onChange as any} />;
               return <BoxNode key={layer.id} layer={layer} {...common} onChange={common.onChange as any} />;
