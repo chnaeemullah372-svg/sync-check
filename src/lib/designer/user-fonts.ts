@@ -20,7 +20,9 @@ let loadPromise: Promise<void> | null = null;
 
 export function subscribeUserFonts(cb: () => void) {
   listeners.add(cb);
-  return () => listeners.delete(cb);
+  return () => {
+    listeners.delete(cb);
+  };
 }
 
 export function getUserFontsSnapshot(): string[] {
