@@ -51,7 +51,12 @@ export async function consumeStagedPsd(): Promise<StagedPsd | null> {
   try {
     const persisted = await get<StoredPsd>(PERSIST_KEY);
     if (persisted && Date.now() - persisted.createdAt <= PERSIST_TTL_MS) {
-      const { createdAt: _createdAt, ...payload } = persisted;
+      const payload: StagedPsd = {
+        width: persisted.width,
+        height: persisted.height,
+        background: persisted.background,
+        layers: persisted.layers,
+      };
       lastConsumed = { payload, at: Date.now() };
       void del(PERSIST_KEY);
       return payload;
