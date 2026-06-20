@@ -230,15 +230,16 @@ function fallbackFontFor(fontFamily: string) {
 }
 
 function resolvePsdFont(raw: unknown) {
-  const directCustomFamily = resolveCustomFontFamily(String(raw || ""));
+  const rawName = String(raw || "Arial").trim() || "Arial";
+  const directCustomFamily = resolveCustomFontFamily(rawName);
   if (directCustomFamily) {
-    return { family: directCustomFamily, requested: String(raw || directCustomFamily), missing: false };
+    return { family: directCustomFamily, requested: rawName, missing: false };
   }
-  const requested = normalizePsdFont(raw);
+  const requested = normalizePsdFont(rawName);
   const customFamily = resolveCustomFontFamily(requested);
-  if (customFamily) return { family: customFamily, requested, missing: false };
-  if (isKnownDesignerFont(requested)) return { family: requested, requested, missing: false };
-  return { family: fallbackFontFor(requested), requested, missing: true };
+  if (customFamily) return { family: customFamily, requested: rawName, missing: false };
+  if (isKnownDesignerFont(requested)) return { family: requested, requested: rawName, missing: false };
+  return { family: fallbackFontFor(requested), requested: rawName, missing: true };
 }
 
 function sizedValue(input: unknown) {
