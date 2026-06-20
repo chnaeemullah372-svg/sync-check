@@ -71,6 +71,8 @@ export interface TextLayer extends BaseLayer {
   fontMissing?: boolean;
   /** Keep PSD text inside its imported box when replacement fonts have different metrics. */
   autoFit?: boolean;
+  /** PSD/imported line-height ratio. Konva expects a multiplier, not pixels. */
+  lineHeight?: number;
   /** Extra horizontal metric scale from the PSD font/run. */
   scaleXText?: number;
 }

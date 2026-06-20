@@ -54,6 +54,7 @@ type ImportedPsdLayer = {
   originalFontFamily?: string;
   fontMissing?: boolean;
   autoFit?: boolean;
+  lineHeight?: number;
   scaleXText?: number;
 };
 
@@ -450,7 +451,8 @@ function DesignerPage() {
               rtl: !!l.rtl,
               originalFontFamily: l.originalFontFamily,
               fontMissing: !!l.fontMissing,
-              autoFit: l.autoFit ?? true,
+              autoFit: l.originalFontFamily || l.fontMissing ? false : (l.autoFit ?? true),
+              lineHeight: l.lineHeight ?? 1.2,
               scaleXText: l.scaleXText ?? 1,
             };
           }

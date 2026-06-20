@@ -110,7 +110,7 @@ const SYSTEM_FONTS = new Set([
 // Fonts listed in FONT_LIBRARY but NOT loaded by the global <link> tag and
 // NOT available as an uploaded custom font. Treat as missing -> use fallback.
 // (Jameel Noori Nastaleeq is now served via cdnfonts in __root.tsx.)
-const NON_WEB_SAFE_LIBRARY_FONTS = new Set(["Alvi Nastaleeq"]);
+const NON_WEB_SAFE_LIBRARY_FONTS = new Set(["Alvi Nastaleeq", "Arial Rounded MT Bold"]);
 
 type PsdFontRef = { name?: unknown; family?: unknown };
 type PsdSizedValue = { value?: unknown };
@@ -118,6 +118,8 @@ type PsdTextStyle = {
   font?: PsdFontRef;
   fontSize?: unknown | PsdSizedValue;
   size?: unknown | PsdSizedValue;
+  leading?: unknown | PsdSizedValue;
+  autoLeading?: unknown;
   fontStyle?: unknown;
   horizontalScale?: unknown;
   verticalScale?: unknown;
@@ -136,6 +138,13 @@ type PsdTextInfo = {
   text?: string;
   font?: PsdFontRef;
   transform?: unknown;
+  boxBounds?: unknown;
+  bounds?: unknown;
+  boundingBox?: unknown;
+  left?: number;
+  top?: number;
+  right?: number;
+  bottom?: number;
   style?: PsdTextStyle;
   styleRuns?: Array<{ style?: PsdTextStyle }>;
   paragraphStyle?: PsdParagraphStyle;
@@ -158,6 +167,7 @@ const FONT_ALIASES: Record<string, string> = {
   ArialBoldMT: "Arial",
   ArialItalicMT: "Arial",
   ArialBoldItalicMT: "Arial",
+  ArialRoundedMTBold: "Arial Rounded MT Bold",
   HelveticaNeueLTStdRoman: "Helvetica",
   HelveticaNeueLTStdBd: "Helvetica",
   HelveticaNeue: "Helvetica",
@@ -220,15 +230,16 @@ function fallbackFontFor(fontFamily: string) {
 }
 
 function resolvePsdFont(raw: unknown) {
-  const directCustomFamily = resolveCustomFontFamily(String(raw || ""));
+  const rawName = String(raw || "Arial").trim() || "Arial";
+  const directCustomFamily = resolveCustomFontFamily(rawName);
   if (directCustomFamily) {
-    return { family: directCustomFamily, requested: String(raw || directCustomFamily), missing: false };
+    return { family: directCustomFamily, requested: rawName, missing: false };
   }
-  const requested = normalizePsdFont(raw);
+  const requested = normalizePsdFont(rawName);
   const customFamily = resolveCustomFontFamily(requested);
-  if (customFamily) return { family: customFamily, requested, missing: false };
-  if (isKnownDesignerFont(requested)) return { family: requested, requested, missing: false };
-  return { family: fallbackFontFor(requested), requested, missing: true };
+  if (customFamily) return { family: customFamily, requested: rawName, missing: false };
+  if (isKnownDesignerFont(requested)) return { family: requested, requested: rawName, missing: false };
+  return { family: fallbackFontFor(requested), requested: rawName, missing: true };
 }
 
 function sizedValue(input: unknown) {
@@ -242,6 +253,66 @@ function getPsdFontSize(style: PsdTextStyle, boundsHeight: number) {
   const raw = Number(sizedValue(style.fontSize) ?? sizedValue(style.size));
   if (Number.isFinite(raw) && raw > 0) return Math.max(1, Math.min(500, raw));
   return Math.max(8, Math.min(200, boundsHeight * 0.72));
+}
+
+function getPsdLineHeight(style: PsdTextStyle, fontSize: number) {
+  const raw = Number(sizedValue(style.leading));
+  if (Number.isFinite(raw) && raw > 0 && fontSize > 0) {
+    return Math.max(0.6, Math.min(4, raw / fontSize));
+  }
+  const autoLeading = Number(sizedValue(style.autoLeading));
+  if (Number.isFinite(autoLeading) && autoLeading > 0) {
+    return Math.max(0.6, Math.min(4, autoLeading > 10 ? autoLeading / 100 : autoLeading));
+  }
+  return 1.2;
+}
+
+function unitValue(input: unknown): number | null {
+  if (typeof input === "number" && Number.isFinite(input)) return input;
+  if (input && typeof input === "object" && "value" in input) {
+    const value = Number((input as PsdSizedValue).value);
+    return Number.isFinite(value) ? value : null;
+  }
+  return null;
+}
+
+function getUnitsBounds(input: unknown) {
+  if (!input || typeof input !== "object") return null;
+  const obj = input as { left?: unknown; top?: unknown; right?: unknown; bottom?: unknown };
+  const left = unitValue(obj.left);
+  const top = unitValue(obj.top);
+  const right = unitValue(obj.right);
+  const bottom = unitValue(obj.bottom);
+  if ([left, top, right, bottom].every((v) => v !== null)) return { left: left!, top: top!, right: right!, bottom: bottom! };
+  return null;
+}
+
+function getPsdTextBounds(n: PsdNode, textInfo: PsdTextInfo) {
+  const transform = Array.isArray(textInfo.transform) ? textInfo.transform.map(Number) : null;
+  const tx = transform && Number.isFinite(transform[4]) ? transform[4] : undefined;
+  const ty = transform && Number.isFinite(transform[5]) ? transform[5] : undefined;
+  if (Array.isArray(textInfo.boxBounds) && textInfo.boxBounds.length >= 4) {
+    const [top, left, bottom, right] = textInfo.boxBounds.map(Number);
+    if ([top, left, bottom, right].every(Number.isFinite)) {
+      const x = (tx ?? n.left ?? 0) + left;
+      const y = (ty ?? n.top ?? 0) + top;
+      return { x, y, width: Math.max(1, right - left), height: Math.max(1, bottom - top) };
+    }
+  }
+  const explicit = getUnitsBounds(textInfo.bounds) || getUnitsBounds(textInfo.boundingBox);
+  if (explicit) {
+    return {
+      x: explicit.left,
+      y: explicit.top,
+      width: Math.max(1, explicit.right - explicit.left),
+      height: Math.max(1, explicit.bottom - explicit.top),
+    };
+  }
+  const left = textInfo.left ?? n.left ?? 0;
+  const top = textInfo.top ?? n.top ?? 0;
+  const right = textInfo.right ?? n.right ?? left + 1;
+  const bottom = textInfo.bottom ?? n.bottom ?? top + 1;
+  return { x: left, y: top, width: Math.max(1, right - left), height: Math.max(1, bottom - top) };
 }
 
 function getPsdTextScale(style: PsdTextStyle) {
@@ -409,6 +480,7 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
         originalFontFamily?: string;
         fontMissing?: boolean;
         autoFit?: boolean;
+        lineHeight?: number;
         scaleXText?: number;
       };
       const out: Out[] = [];
@@ -434,6 +506,7 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
           if (n.text?.text) {
             const textInfo = n.text || {};
             const style = textInfo.styleRuns?.[0]?.style || textInfo.style || {};
+            const textBounds = getPsdTextBounds(n, textInfo);
             const resolvedFont = resolvePsdFont(
               style.font?.name ||
                 style.font?.family ||
@@ -443,7 +516,7 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
             );
             if (resolvedFont.missing) missingFonts.add(resolvedFont.requested);
             const transformScale = getTextTransformScale(textInfo);
-            const fontSize = getPsdFontSize(style, h) * transformScale.sy;
+            const fontSize = getPsdFontSize(style, textBounds.height) * transformScale.sy;
             const paragraph =
               textInfo.paragraphStyle || textInfo.paragraphStyleRuns?.[0]?.style || {};
             const justification = String(
@@ -458,10 +531,10 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
               id: crypto.randomUUID(),
               name: n.name || "Text",
               type: "text",
-              x: left,
-              y: top,
-              width: w,
-              height: h,
+              x: textBounds.x,
+              y: textBounds.y,
+              width: textBounds.width,
+              height: textBounds.height,
               text: n.text.text,
               fontSize,
               fontFamily: resolvedFont.family,
@@ -472,6 +545,7 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
               originalFontFamily: resolvedFont.requested,
               fontMissing: resolvedFont.missing,
               autoFit: false,
+              lineHeight: getPsdLineHeight(style, fontSize),
               scaleXText: getPsdTextScale(style) * transformScale.sx,
               fill: getPsdFillColor(style),
             });
