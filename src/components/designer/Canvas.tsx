@@ -107,13 +107,15 @@ function TextNode({ layer, onSelect, onChange, onDragEnd, onDblClick, nodeRef, g
   const ref = useRef<Konva.Text>(null);
   useEffect(() => { nodeRef(ref.current); return () => nodeRef(null); }, [nodeRef]);
   const renderedFontSize = fitTextFontSize(layer);
+  const textScaleX = layer.autoFit === false || layer.originalFontFamily || layer.fontMissing ? (layer.scaleXText ?? 1) : 1;
   return (
     <Text
       ref={ref}
       text={layer.text} x={layer.x} y={layer.y} width={layer.width} height={layer.height}
       fontSize={renderedFontSize} fontFamily={layer.fontFamily} fontStyle={layer.fontStyle}
       fill={layer.fill} align={layer.align} rotation={layer.rotation}
-      wrap="none" ellipsis verticalAlign="middle" direction={layer.rtl ? "rtl" : "ltr"}
+      lineHeight={layer.lineHeight ?? 1.2} scaleX={textScaleX}
+      wrap="none" ellipsis={layer.autoFit !== false} verticalAlign="middle" direction={layer.rtl ? "rtl" : "ltr"}
       opacity={layer.opacity} visible={layer.visible}
       listening={!layer.locked}
       draggable={!layer.locked}
@@ -128,8 +130,9 @@ function TextNode({ layer, onSelect, onChange, onDragEnd, onDblClick, nodeRef, g
         const isCorner =
           (anchor.startsWith("top") || anchor.startsWith("bottom")) &&
           (anchor.endsWith("left") || anchor.endsWith("right"));
+        const baseTextScaleX = textScaleX || 1;
         const next: Partial<TextLayer> = { x: node.x(), y: node.y(),
-          width: Math.max(20, layer.width * sx), height: Math.max(10, layer.height * sy),
+          width: Math.max(20, layer.width * sx * baseTextScaleX), height: Math.max(10, layer.height * sy),
           rotation: node.rotation() };
         if (isCorner) {
           const factor = Math.abs(sy) || Math.abs(sx) || 1;
