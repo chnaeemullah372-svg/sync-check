@@ -110,7 +110,7 @@ const SYSTEM_FONTS = new Set([
 // Fonts listed in FONT_LIBRARY but NOT loaded by the global <link> tag and
 // NOT available as an uploaded custom font. Treat as missing -> use fallback.
 // (Jameel Noori Nastaleeq is now served via cdnfonts in __root.tsx.)
-const NON_WEB_SAFE_LIBRARY_FONTS = new Set(["Alvi Nastaleeq"]);
+const NON_WEB_SAFE_LIBRARY_FONTS = new Set(["Alvi Nastaleeq", "Arial Rounded MT Bold"]);
 
 type PsdFontRef = { name?: unknown; family?: unknown };
 type PsdSizedValue = { value?: unknown };
@@ -167,6 +167,7 @@ const FONT_ALIASES: Record<string, string> = {
   ArialBoldMT: "Arial",
   ArialItalicMT: "Arial",
   ArialBoldItalicMT: "Arial",
+  ArialRoundedMTBold: "Arial Rounded MT Bold",
   HelveticaNeueLTStdRoman: "Helvetica",
   HelveticaNeueLTStdBd: "Helvetica",
   HelveticaNeue: "Helvetica",
