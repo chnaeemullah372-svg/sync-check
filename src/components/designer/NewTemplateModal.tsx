@@ -478,6 +478,7 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
         originalFontFamily?: string;
         fontMissing?: boolean;
         autoFit?: boolean;
+        lineHeight?: number;
         scaleXText?: number;
       };
       const out: Out[] = [];
@@ -503,6 +504,7 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
           if (n.text?.text) {
             const textInfo = n.text || {};
             const style = textInfo.styleRuns?.[0]?.style || textInfo.style || {};
+            const textBounds = getPsdTextBounds(n, textInfo);
             const resolvedFont = resolvePsdFont(
               style.font?.name ||
                 style.font?.family ||
@@ -512,7 +514,7 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
             );
             if (resolvedFont.missing) missingFonts.add(resolvedFont.requested);
             const transformScale = getTextTransformScale(textInfo);
-            const fontSize = getPsdFontSize(style, h) * transformScale.sy;
+            const fontSize = getPsdFontSize(style, textBounds.height) * transformScale.sy;
             const paragraph =
               textInfo.paragraphStyle || textInfo.paragraphStyleRuns?.[0]?.style || {};
             const justification = String(
@@ -527,10 +529,10 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
               id: crypto.randomUUID(),
               name: n.name || "Text",
               type: "text",
-              x: left,
-              y: top,
-              width: w,
-              height: h,
+              x: textBounds.x,
+              y: textBounds.y,
+              width: textBounds.width,
+              height: textBounds.height,
               text: n.text.text,
               fontSize,
               fontFamily: resolvedFont.family,
@@ -541,6 +543,7 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
               originalFontFamily: resolvedFont.requested,
               fontMissing: resolvedFont.missing,
               autoFit: false,
+              lineHeight: getPsdLineHeight(style, fontSize),
               scaleXText: getPsdTextScale(style) * transformScale.sx,
               fill: getPsdFillColor(style),
             });
