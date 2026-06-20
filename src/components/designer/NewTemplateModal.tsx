@@ -253,6 +253,66 @@ function getPsdFontSize(style: PsdTextStyle, boundsHeight: number) {
   return Math.max(8, Math.min(200, boundsHeight * 0.72));
 }
 
+function getPsdLineHeight(style: PsdTextStyle, fontSize: number) {
+  const raw = Number(sizedValue(style.leading));
+  if (Number.isFinite(raw) && raw > 0 && fontSize > 0) {
+    return Math.max(0.6, Math.min(4, raw / fontSize));
+  }
+  const autoLeading = Number(sizedValue(style.autoLeading));
+  if (Number.isFinite(autoLeading) && autoLeading > 0) {
+    return Math.max(0.6, Math.min(4, autoLeading > 10 ? autoLeading / 100 : autoLeading));
+  }
+  return 1.2;
+}
+
+function unitValue(input: unknown): number | null {
+  if (typeof input === "number" && Number.isFinite(input)) return input;
+  if (input && typeof input === "object" && "value" in input) {
+    const value = Number((input as PsdSizedValue).value);
+    return Number.isFinite(value) ? value : null;
+  }
+  return null;
+}
+
+function getUnitsBounds(input: unknown) {
+  if (!input || typeof input !== "object") return null;
+  const obj = input as { left?: unknown; top?: unknown; right?: unknown; bottom?: unknown };
+  const left = unitValue(obj.left);
+  const top = unitValue(obj.top);
+  const right = unitValue(obj.right);
+  const bottom = unitValue(obj.bottom);
+  if ([left, top, right, bottom].every((v) => v !== null)) return { left: left!, top: top!, right: right!, bottom: bottom! };
+  return null;
+}
+
+function getPsdTextBounds(n: PsdNode, textInfo: PsdTextInfo) {
+  const transform = Array.isArray(textInfo.transform) ? textInfo.transform.map(Number) : null;
+  const tx = transform && Number.isFinite(transform[4]) ? transform[4] : undefined;
+  const ty = transform && Number.isFinite(transform[5]) ? transform[5] : undefined;
+  if (Array.isArray(textInfo.boxBounds) && textInfo.boxBounds.length >= 4) {
+    const [top, left, bottom, right] = textInfo.boxBounds.map(Number);
+    if ([top, left, bottom, right].every(Number.isFinite)) {
+      const x = (tx ?? n.left ?? 0) + left;
+      const y = (ty ?? n.top ?? 0) + top;
+      return { x, y, width: Math.max(1, right - left), height: Math.max(1, bottom - top) };
+    }
+  }
+  const explicit = getUnitsBounds(textInfo.bounds) || getUnitsBounds(textInfo.boundingBox);
+  if (explicit) {
+    return {
+      x: explicit.left,
+      y: explicit.top,
+      width: Math.max(1, explicit.right - explicit.left),
+      height: Math.max(1, explicit.bottom - explicit.top),
+    };
+  }
+  const left = textInfo.left ?? n.left ?? 0;
+  const top = textInfo.top ?? n.top ?? 0;
+  const right = textInfo.right ?? n.right ?? left + 1;
+  const bottom = textInfo.bottom ?? n.bottom ?? top + 1;
+  return { x: left, y: top, width: Math.max(1, right - left), height: Math.max(1, bottom - top) };
+}
+
 function getPsdTextScale(style: PsdTextStyle) {
   const raw = Number(sizedValue(style.horizontalScale));
   if (!Number.isFinite(raw) || raw <= 0) return 1;
