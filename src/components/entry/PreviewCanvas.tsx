@@ -328,6 +328,8 @@ export function PreviewCanvas({
                   fontSize={t.fontSize}
                   fontFamily={t.fontFamily}
                   fontStyle={t.fontStyle}
+                  lineHeight={t.lineHeight ?? 1.2}
+                  scaleX={t.scaleXText ?? 1}
                   fill={t.fill}
                   align={t.align}
                   rotation={t.rotation}
