@@ -118,6 +118,8 @@ type PsdTextStyle = {
   font?: PsdFontRef;
   fontSize?: unknown | PsdSizedValue;
   size?: unknown | PsdSizedValue;
+  leading?: unknown | PsdSizedValue;
+  autoLeading?: unknown;
   fontStyle?: unknown;
   horizontalScale?: unknown;
   verticalScale?: unknown;
@@ -136,6 +138,13 @@ type PsdTextInfo = {
   text?: string;
   font?: PsdFontRef;
   transform?: unknown;
+  boxBounds?: unknown;
+  bounds?: unknown;
+  boundingBox?: unknown;
+  left?: number;
+  top?: number;
+  right?: number;
+  bottom?: number;
   style?: PsdTextStyle;
   styleRuns?: Array<{ style?: PsdTextStyle }>;
   paragraphStyle?: PsdParagraphStyle;
