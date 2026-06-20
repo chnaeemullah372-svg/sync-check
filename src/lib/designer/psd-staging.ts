@@ -29,7 +29,11 @@ export async function setStagedPsd(p: StagedPsd) {
   lastConsumed = null;
   if (!canUseBrowserStorage()) return;
   const stored: StoredPsd = { ...p, createdAt: Date.now() };
-  await set(PERSIST_KEY, stored);
+  try {
+    await set(PERSIST_KEY, stored);
+  } catch {
+    /* In-memory staging still works if browser storage quota is full. */
+  }
   try {
     sessionStorage.removeItem(LEGACY_SESSION_KEY);
   } catch {
