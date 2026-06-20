@@ -290,7 +290,8 @@ export function PreviewCanvas({
                 const sy = node.scaleY();
                 node.scaleX(1);
                 node.scaleY(1);
-                const newW = Math.max(8, (layer as any).width * sx);
+                const textScaleX = layer.type === "text" ? ((layer as TextLayer).scaleXText ?? 1) : 1;
+                const newW = Math.max(8, ((layer as any).width * sx) / textScaleX);
                 const newH = Math.max(8, (layer as any).height * sy);
                 const upd: LayerOverlay = {
                   x: node.x(),
@@ -299,7 +300,7 @@ export function PreviewCanvas({
                   height: newH,
                   rotation: node.rotation(),
                 };
-                if (layer.type === "text") {
+                if (layer.type === "text" && (layer as TextLayer).autoFit !== false) {
                   upd.fontSize = Math.max(6, (layer as TextLayer).fontSize * ((sx + sy) / 2));
                 }
                 commit(layer.id, upd);
