@@ -419,8 +419,9 @@ function DesignerPage() {
         /* ignore */
       }
     } else if (mode === "psd") {
+      void (async () => {
       try {
-        const p = consumeStagedPsd();
+        const p = await consumeStagedPsd();
         if (!p) {
           toast.error("PSD data not found");
           return;
@@ -482,6 +483,7 @@ function DesignerPage() {
       } catch (e: unknown) {
         toast.error(`PSD load failed: ${e instanceof Error ? e.message : String(e)}`);
       }
+      })();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

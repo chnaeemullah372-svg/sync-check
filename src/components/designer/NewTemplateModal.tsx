@@ -499,8 +499,8 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
       };
       walk(psd.children as unknown as PsdNode[] | undefined);
 
-      // Stage in memory — zero storage limits, survives the navigation
-      setStagedPsd({ width: W, height: H, background: bgSrc, layers: out });
+      // Stage before navigation; IndexedDB fallback survives route reloads / preview refreshes.
+      await setStagedPsd({ width: W, height: H, background: bgSrc, layers: out });
       try {
         sessionStorage.removeItem("designer.currentTemplateId");
         sessionStorage.removeItem("designer.currentTemplateName");
