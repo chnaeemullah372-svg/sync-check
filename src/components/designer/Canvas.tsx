@@ -132,7 +132,7 @@ function TextNode({ layer, onSelect, onChange, onDragEnd, onDblClick, nodeRef, g
           (anchor.endsWith("left") || anchor.endsWith("right"));
         const baseTextScaleX = textScaleX || 1;
         const next: Partial<TextLayer> = { x: node.x(), y: node.y(),
-          width: Math.max(20, layer.width * sx * baseTextScaleX), height: Math.max(10, layer.height * sy),
+          width: Math.max(20, (layer.width * sx) / baseTextScaleX), height: Math.max(10, layer.height * sy),
           rotation: node.rotation() };
         if (isCorner) {
           const factor = Math.abs(sy) || Math.abs(sx) || 1;
