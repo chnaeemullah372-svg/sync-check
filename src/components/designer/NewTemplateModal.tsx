@@ -504,10 +504,16 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
         align?: "left" | "center" | "right";
         rtl?: boolean;
         originalFontFamily?: string;
+        missingFont?: boolean;
         fontMissing?: boolean;
         autoFit?: boolean;
         lineHeight?: number;
+        letterSpacing?: number;
         scaleXText?: number;
+        psdBounds?: { left: number; top: number; right: number; bottom: number };
+        psdTextTransform?: unknown;
+        psdLeading?: number;
+        psdBaselineOffset?: number;
       };
       const out: Out[] = [];
       const missingFonts = new Set<string>();
@@ -569,10 +575,16 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
               align,
               rtl: resolvedFont.family.includes("Urdu") || resolvedFont.family.includes("Arabic"),
               originalFontFamily: resolvedFont.requested,
+              missingFont: resolvedFont.missing,
               fontMissing: resolvedFont.missing,
               autoFit: false,
               lineHeight: getPsdLineHeight(style, fontSize),
+              letterSpacing: getPsdLetterSpacing(style, fontSize),
               scaleXText: getPsdTextScale(style) * transformScale.sx,
+              psdBounds: textBounds.psdBounds,
+              psdTextTransform: textInfo.transform,
+              psdLeading: getPsdLeading(style),
+              psdBaselineOffset: getPsdBaselineOffset(style),
               fill: getPsdFillColor(style),
             });
             continue;
