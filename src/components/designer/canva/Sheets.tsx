@@ -127,12 +127,14 @@ export function FontSheet() {
                   className={cn("w-full px-3 py-3 rounded-lg border flex items-center justify-between gap-3",
                     sel ? "border-primary bg-primary/5" : "border-transparent hover:bg-accent")}>
                   <button onClick={() => apply(f, rtl)} className="flex-1 text-left min-w-0">
-                    <span className="truncate block text-sm font-semibold">{f}</span>
-                    {rtl && (
+                    <span className={cn("truncate block font-semibold", rtl ? "text-sm" : "text-xl")}>
+                      {f}
+                    </span>
+                    {rtl ? (
                       <span className="truncate block text-xl" style={{ fontFamily: f, direction: "rtl" }}>
                         نمونہ متن اردو
                       </span>
-                    )}
+                    ) : null}
                   </button>
                   <button
                     onClick={() => { void removeUserFont(f); toast.success(`Removed "${f}"`); }}
@@ -154,12 +156,18 @@ export function FontSheet() {
               <button key={f.family} onClick={() => apply(f.family, f.rtl)}
                 className={cn("w-full text-left px-3 py-3 rounded-lg border flex items-center justify-between gap-3",
                   sel ? "border-primary bg-primary/5" : "hover:bg-accent border-transparent")}>
-                <span className="min-w-0 flex-1">
-                  <span className="truncate block text-sm font-semibold">{f.family}</span>
-                  <span className="truncate block text-xl" style={{ fontFamily: f.family, direction: f.rtl ? "rtl" : "ltr" }}>
-                    {f.preview || f.label}
+                {f.rtl || f.preview ? (
+                  <span className="min-w-0 flex-1">
+                    <span className="truncate block text-sm font-semibold">{f.label}</span>
+                    <span className="truncate block text-xl" style={{ fontFamily: f.family, direction: f.rtl ? "rtl" : "ltr" }}>
+                      {f.preview || f.label}
+                    </span>
                   </span>
-                </span>
+                ) : (
+                  <span className="truncate text-xl" style={{ fontFamily: f.family }}>
+                    {f.label}
+                  </span>
+                )}
                 <span className="text-[10px] text-muted-foreground shrink-0">{f.category}</span>
               </button>
             );
