@@ -311,11 +311,12 @@ function getPsdTextBounds(n: PsdNode, textInfo: PsdTextInfo) {
   const transform = Array.isArray(textInfo.transform) ? textInfo.transform.map(Number) : null;
   const tx = transform && Number.isFinite(transform[4]) ? transform[4] : undefined;
   const ty = transform && Number.isFinite(transform[5]) ? transform[5] : undefined;
+  const rawNodeBounds = { left: n.left, top: n.top, right: n.right, bottom: n.bottom };
   const nodeBounds = {
-    left: n.left ?? 0,
-    top: n.top ?? 0,
-    right: n.right ?? (n.left ?? 0) + 1,
-    bottom: n.bottom ?? (n.top ?? 0) + 1,
+    left: rawNodeBounds.left ?? 0,
+    top: rawNodeBounds.top ?? 0,
+    right: rawNodeBounds.right ?? (rawNodeBounds.left ?? 0) + 1,
+    bottom: rawNodeBounds.bottom ?? (rawNodeBounds.top ?? 0) + 1,
   };
   const fromBounds = (bounds: { left: number; top: number; right: number; bottom: number }) => ({
     x: bounds.left,
@@ -325,9 +326,12 @@ function getPsdTextBounds(n: PsdNode, textInfo: PsdTextInfo) {
     psdBounds: bounds,
   });
   const exactNodeBounds = fromBounds(nodeBounds);
-  const hasExactNodeBounds = [nodeBounds.left, nodeBounds.top, nodeBounds.right, nodeBounds.bottom].every(
-    Number.isFinite,
-  ) && nodeBounds.right > nodeBounds.left && nodeBounds.bottom > nodeBounds.top;
+  const hasExactNodeBounds = [
+    rawNodeBounds.left,
+    rawNodeBounds.top,
+    rawNodeBounds.right,
+    rawNodeBounds.bottom,
+  ].every((value) => typeof value === "number" && Number.isFinite(value)) && nodeBounds.right > nodeBounds.left && nodeBounds.bottom > nodeBounds.top;
   if (hasExactNodeBounds) return exactNodeBounds;
   if (Array.isArray(textInfo.boxBounds) && textInfo.boxBounds.length >= 4) {
     const [top, left, bottom, right] = textInfo.boxBounds.map(Number);
