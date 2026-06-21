@@ -339,6 +339,9 @@ function LayerRow({
   const explicitKey = (layer as any).fieldKey as string | undefined;
   const derivedKey = nameToFieldKey(layer.name);
   const showKey = explicitKey || derivedKey;
+  const textLayer = layer.type === "text" ? layer : null;
+  const missingFont = !!(textLayer?.missingFont ?? textLayer?.fontMissing);
+  const originalFont = textLayer?.originalFontFamily || textLayer?.fontFamily;
 
   // Long-press → additive selection (mobile multi-select)
   const pressTimer = useRef<number | null>(null);
@@ -391,9 +394,9 @@ function LayerRow({
         </button>
 
         <Icon className="w-3.5 h-3.5" />
-        {layer.type === "text" && (layer as any).fontMissing ? (
+        {textLayer && missingFont ? (
           <span
-            title={`Font missing: ${(layer as any).originalFontFamily || "unknown"} — using ${(layer as any).fontFamily}`}
+            title={`Missing font: ${originalFont || "unknown"}. Upload/install this font. Current fallback: ${textLayer.fontFamily}`}
             className="text-amber-600 shrink-0"
           >
             <AlertTriangle className="w-3.5 h-3.5" />
@@ -427,6 +430,12 @@ function LayerRow({
           </span>
         ) : null}
       </div>
+      {textLayer && (
+        <div className="mt-1 ml-20 min-w-0 text-[10px] leading-snug text-muted-foreground">
+          <div className="truncate">Font: {originalFont}</div>
+          {missingFont && <div className="truncate text-amber-600">Fallback: {textLayer.fontFamily}</div>}
+        </div>
+      )}
       {isSel && (
         <>
           <div className="mt-2 flex items-center gap-0.5 flex-wrap">
