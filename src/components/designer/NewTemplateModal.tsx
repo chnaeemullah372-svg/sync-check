@@ -8,6 +8,7 @@ import {
   loadCustomFontsOnce,
   resolveCustomFontFamily,
 } from "@/hooks/use-custom-fonts";
+import { loadUserFontsOnce } from "@/lib/designer/user-fonts";
 import {
   Dialog,
   DialogContent,
@@ -517,6 +518,7 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
       };
       const out: Out[] = [];
       const missingFonts = new Set<string>();
+      await loadUserFontsOnce();
       await loadCustomFontsOnce();
       await document.fonts?.ready;
       const walk = (nodes: PsdNode[] | undefined) => {
