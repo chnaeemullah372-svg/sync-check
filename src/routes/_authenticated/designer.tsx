@@ -52,10 +52,16 @@ type ImportedPsdLayer = {
   align?: "left" | "center" | "right";
   rtl?: boolean;
   originalFontFamily?: string;
+  missingFont?: boolean;
   fontMissing?: boolean;
   autoFit?: boolean;
   lineHeight?: number;
+  letterSpacing?: number;
   scaleXText?: number;
+  psdBounds?: { left: number; top: number; right: number; bottom: number };
+  psdTextTransform?: unknown;
+  psdLeading?: number;
+  psdBaselineOffset?: number;
 };
 
 type DesignerSnapshot = {
@@ -450,10 +456,16 @@ function DesignerPage() {
               align: l.align || ("left" as const),
               rtl: !!l.rtl,
               originalFontFamily: l.originalFontFamily,
-              fontMissing: !!l.fontMissing,
-              autoFit: l.originalFontFamily || l.fontMissing ? false : (l.autoFit ?? true),
+              missingFont: !!(l.missingFont ?? l.fontMissing),
+              fontMissing: !!(l.missingFont ?? l.fontMissing),
+              autoFit: l.originalFontFamily || l.missingFont || l.fontMissing ? false : (l.autoFit ?? true),
               lineHeight: l.lineHeight ?? 1.2,
+              letterSpacing: l.letterSpacing,
               scaleXText: l.scaleXText ?? 1,
+              psdBounds: l.psdBounds,
+              psdTextTransform: l.psdTextTransform,
+              psdLeading: l.psdLeading,
+              psdBaselineOffset: l.psdBaselineOffset,
             };
           }
           return {
