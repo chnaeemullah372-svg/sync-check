@@ -325,7 +325,10 @@ function getPsdTextBounds(n: PsdNode, textInfo: PsdTextInfo) {
     psdBounds: bounds,
   });
   const exactNodeBounds = fromBounds(nodeBounds);
-  if (String(textInfo.shapeType || "").toLowerCase() === "point") return exactNodeBounds;
+  const hasExactNodeBounds = [nodeBounds.left, nodeBounds.top, nodeBounds.right, nodeBounds.bottom].every(
+    Number.isFinite,
+  ) && nodeBounds.right > nodeBounds.left && nodeBounds.bottom > nodeBounds.top;
+  if (hasExactNodeBounds) return exactNodeBounds;
   if (Array.isArray(textInfo.boxBounds) && textInfo.boxBounds.length >= 4) {
     const [top, left, bottom, right] = textInfo.boxBounds.map(Number);
     if ([top, left, bottom, right].every(Number.isFinite)) {
