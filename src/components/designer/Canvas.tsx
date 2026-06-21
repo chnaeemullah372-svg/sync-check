@@ -36,6 +36,7 @@ function fitRect(iw: number, ih: number, bw: number, bh: number, mode: ImageLaye
 function fitTextFontSize(layer: TextLayer) {
   if (
     layer.originalFontFamily ||
+    layer.missingFont === true ||
     layer.fontMissing === true ||
     layer.autoFit === false ||
     typeof document === "undefined"
@@ -107,15 +108,15 @@ function TextNode({ layer, onSelect, onChange, onDragEnd, onDblClick, nodeRef, g
   const ref = useRef<Konva.Text>(null);
   useEffect(() => { nodeRef(ref.current); return () => nodeRef(null); }, [nodeRef]);
   const renderedFontSize = fitTextFontSize(layer);
-  const textScaleX = layer.autoFit === false || layer.originalFontFamily || layer.fontMissing ? (layer.scaleXText ?? 1) : 1;
+  const textScaleX = layer.autoFit === false || layer.originalFontFamily || layer.missingFont || layer.fontMissing ? (layer.scaleXText ?? 1) : 1;
   return (
     <Text
       ref={ref}
       text={layer.text} x={layer.x} y={layer.y} width={layer.width} height={layer.height}
       fontSize={renderedFontSize} fontFamily={layer.fontFamily} fontStyle={layer.fontStyle}
       fill={layer.fill} align={layer.align} rotation={layer.rotation}
-      lineHeight={layer.lineHeight ?? 1.2} scaleX={textScaleX}
-      wrap="none" ellipsis={layer.autoFit !== false} verticalAlign="middle" direction={layer.rtl ? "rtl" : "ltr"}
+      lineHeight={layer.lineHeight ?? 1.2} letterSpacing={layer.letterSpacing ?? 0} scaleX={textScaleX}
+      wrap="none" ellipsis={layer.autoFit !== false} verticalAlign="top" direction={layer.rtl ? "rtl" : "ltr"}
       opacity={layer.opacity} visible={layer.visible}
       listening={!layer.locked}
       draggable={!layer.locked}
