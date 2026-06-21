@@ -499,7 +499,6 @@ function DesignerPage() {
       }
       })();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load template by id
