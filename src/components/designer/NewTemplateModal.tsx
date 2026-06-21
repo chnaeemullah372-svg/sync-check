@@ -123,6 +123,8 @@ type PsdTextStyle = {
   fontStyle?: unknown;
   horizontalScale?: unknown;
   verticalScale?: unknown;
+  tracking?: unknown | PsdSizedValue;
+  baselineShift?: unknown | PsdSizedValue;
   fillColor?: {
     r?: number;
     g?: number;
@@ -138,6 +140,7 @@ type PsdTextInfo = {
   text?: string;
   font?: PsdFontRef;
   transform?: unknown;
+  shapeType?: unknown;
   boxBounds?: unknown;
   bounds?: unknown;
   boundingBox?: unknown;
