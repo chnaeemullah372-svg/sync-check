@@ -11,6 +11,7 @@ import {
   removeUserFont,
   subscribeUserFonts,
 } from "@/lib/designer/user-fonts";
+import { resolveCustomFontFamily } from "@/hooks/use-custom-fonts";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
@@ -47,14 +48,36 @@ export function FontSheet() {
     (f) => q.trim() === "" || f.toLowerCase().includes(q.toLowerCase()),
   );
   const isRtlFamily = (family: string) => /urdu|arabic|nastaliq|nastaleeq|naskh|noori/i.test(family);
+  const normalizeFontKey = (family: string) => family.toLowerCase().replace(/[\s_-]/g, "");
+  const matchesOriginalFont = (original: string | undefined, family: string) => {
+    if (!original) return false;
+    const resolved = resolveCustomFontFamily(original);
+    return resolved === family || normalizeFontKey(original) === normalizeFontKey(family);
+  };
   const apply = (family: string, rtl?: boolean) => {
-    textLayers.forEach((l) => updateLayer(l.id, { fontFamily: family, rtl } as any));
+    textLayers.forEach((l) => {
+      const clearsMissing = matchesOriginalFont(l.originalFontFamily, family);
+      updateLayer(l.id, {
+        fontFamily: family,
+        rtl,
+        ...(clearsMissing ? { missingFont: false, fontMissing: false } : {}),
+      } as any);
+    });
+  };
+  const clearMatchingMissingFonts = (family: string) => {
+    useDesigner.setState((s) => ({
+      layers: s.layers.map((layer) => {
+        if (layer.type !== "text" || !matchesOriginalFont(layer.originalFontFamily, family)) return layer;
+        return { ...layer, fontFamily: family, missingFont: false, fontMissing: false };
+      }),
+    }));
   };
   const onPickFile = async (file: File | undefined) => {
     if (!file) return;
     setUploading(true);
     try {
       const family = await addUserFont(file);
+      clearMatchingMissingFonts(family);
       apply(family, isRtlFamily(family));
       toast.success(`Font "${family}" added`);
     } catch (e) {
@@ -104,9 +127,14 @@ export function FontSheet() {
                   className={cn("w-full px-3 py-3 rounded-lg border flex items-center justify-between gap-3",
                     sel ? "border-primary bg-primary/5" : "border-transparent hover:bg-accent")}>
                   <button onClick={() => apply(f, rtl)} className="flex-1 text-left min-w-0">
-                    <span className="truncate block text-xl" style={{ fontFamily: f, direction: rtl ? "rtl" : "ltr" }}>
-                      {rtl ? "نمونہ متن — " : ""}{f}
+                    <span className={cn("truncate block font-semibold", rtl ? "text-sm" : "text-xl")}>
+                      {f}
                     </span>
+                    {rtl ? (
+                      <span className="truncate block text-xl" style={{ fontFamily: f, direction: "rtl" }}>
+                        نمونہ متن اردو
+                      </span>
+                    ) : null}
                   </button>
                   <button
                     onClick={() => { void removeUserFont(f); toast.success(`Removed "${f}"`); }}
@@ -128,9 +156,18 @@ export function FontSheet() {
               <button key={f.family} onClick={() => apply(f.family, f.rtl)}
                 className={cn("w-full text-left px-3 py-3 rounded-lg border flex items-center justify-between gap-3",
                   sel ? "border-primary bg-primary/5" : "hover:bg-accent border-transparent")}>
-                <span className="truncate text-xl" style={{ fontFamily: f.family, direction: f.rtl ? "rtl" : "ltr" }}>
-                  {f.preview || f.label}
-                </span>
+                {f.rtl || f.preview ? (
+                  <span className="min-w-0 flex-1">
+                    <span className="truncate block text-sm font-semibold">{f.label}</span>
+                    <span className="truncate block text-xl" style={{ fontFamily: f.family, direction: f.rtl ? "rtl" : "ltr" }}>
+                      {f.preview || f.label}
+                    </span>
+                  </span>
+                ) : (
+                  <span className="truncate text-xl" style={{ fontFamily: f.family }}>
+                    {f.label}
+                  </span>
+                )}
                 <span className="text-[10px] text-muted-foreground shrink-0">{f.category}</span>
               </button>
             );

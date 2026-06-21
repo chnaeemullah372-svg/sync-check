@@ -67,14 +67,26 @@ export interface TextLayer extends BaseLayer {
   rtl?: boolean;
   /** Original PSD font family if the font was substituted because it is not installed. */
   originalFontFamily?: string;
-  /** True when the imported font was not available and a fallback was applied. */
+  /** True when the imported PSD font was not available and a fallback was applied. */
+  missingFont?: boolean;
+  /** Legacy alias kept so older saved templates continue to show warnings. */
   fontMissing?: boolean;
   /** Keep PSD text inside its imported box when replacement fonts have different metrics. */
   autoFit?: boolean;
   /** PSD/imported line-height ratio. Konva expects a multiplier, not pixels. */
   lineHeight?: number;
+  /** PSD tracking converted to Konva pixel letter spacing. */
+  letterSpacing?: number;
   /** Extra horizontal metric scale from the PSD font/run. */
   scaleXText?: number;
+  /** Exact Photoshop text/layer bounds used during PSD import. */
+  psdBounds?: { left: number; top: number; right: number; bottom: number };
+  /** Raw PSD text transform matrix/metadata, retained for reload/debug fidelity. */
+  psdTextTransform?: any;
+  /** Raw PSD leading value in pixels, when present. */
+  psdLeading?: number;
+  /** Raw PSD baseline shift/offset in pixels, when present. */
+  psdBaselineOffset?: number;
 }
 
 export interface ImageLayer extends BaseLayer {

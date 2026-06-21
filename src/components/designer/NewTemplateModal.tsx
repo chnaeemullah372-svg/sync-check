@@ -8,6 +8,7 @@ import {
   loadCustomFontsOnce,
   resolveCustomFontFamily,
 } from "@/hooks/use-custom-fonts";
+import { loadUserFontsOnce } from "@/lib/designer/user-fonts";
 import {
   Dialog,
   DialogContent,
@@ -123,6 +124,8 @@ type PsdTextStyle = {
   fontStyle?: unknown;
   horizontalScale?: unknown;
   verticalScale?: unknown;
+  tracking?: unknown | PsdSizedValue;
+  baselineShift?: unknown | PsdSizedValue;
   fillColor?: {
     r?: number;
     g?: number;
@@ -138,6 +141,7 @@ type PsdTextInfo = {
   text?: string;
   font?: PsdFontRef;
   transform?: unknown;
+  shapeType?: unknown;
   boxBounds?: unknown;
   bounds?: unknown;
   boundingBox?: unknown;
@@ -267,6 +271,22 @@ function getPsdLineHeight(style: PsdTextStyle, fontSize: number) {
   return 1.2;
 }
 
+function getPsdLeading(style: PsdTextStyle) {
+  const raw = Number(sizedValue(style.leading));
+  return Number.isFinite(raw) && raw > 0 ? raw : undefined;
+}
+
+function getPsdBaselineOffset(style: PsdTextStyle) {
+  const raw = Number(sizedValue(style.baselineShift));
+  return Number.isFinite(raw) ? raw : undefined;
+}
+
+function getPsdLetterSpacing(style: PsdTextStyle, fontSize: number) {
+  const raw = Number(sizedValue(style.tracking));
+  if (!Number.isFinite(raw) || !fontSize) return undefined;
+  return Math.max(-200, Math.min(200, (raw / 1000) * fontSize));
+}
+
 function unitValue(input: unknown): number | null {
   if (typeof input === "number" && Number.isFinite(input)) return input;
   if (input && typeof input === "object" && "value" in input) {
@@ -291,28 +311,42 @@ function getPsdTextBounds(n: PsdNode, textInfo: PsdTextInfo) {
   const transform = Array.isArray(textInfo.transform) ? textInfo.transform.map(Number) : null;
   const tx = transform && Number.isFinite(transform[4]) ? transform[4] : undefined;
   const ty = transform && Number.isFinite(transform[5]) ? transform[5] : undefined;
+  const rawNodeBounds = { left: n.left, top: n.top, right: n.right, bottom: n.bottom };
+  const nodeBounds = {
+    left: rawNodeBounds.left ?? 0,
+    top: rawNodeBounds.top ?? 0,
+    right: rawNodeBounds.right ?? (rawNodeBounds.left ?? 0) + 1,
+    bottom: rawNodeBounds.bottom ?? (rawNodeBounds.top ?? 0) + 1,
+  };
+  const fromBounds = (bounds: { left: number; top: number; right: number; bottom: number }) => ({
+    x: bounds.left,
+    y: bounds.top,
+    width: Math.max(1, bounds.right - bounds.left),
+    height: Math.max(1, bounds.bottom - bounds.top),
+    psdBounds: bounds,
+  });
+  const exactNodeBounds = fromBounds(nodeBounds);
+  const hasExactNodeBounds = [
+    rawNodeBounds.left,
+    rawNodeBounds.top,
+    rawNodeBounds.right,
+    rawNodeBounds.bottom,
+  ].every((value) => typeof value === "number" && Number.isFinite(value)) && nodeBounds.right > nodeBounds.left && nodeBounds.bottom > nodeBounds.top;
+  if (hasExactNodeBounds) return exactNodeBounds;
   if (Array.isArray(textInfo.boxBounds) && textInfo.boxBounds.length >= 4) {
     const [top, left, bottom, right] = textInfo.boxBounds.map(Number);
     if ([top, left, bottom, right].every(Number.isFinite)) {
       const x = (tx ?? n.left ?? 0) + left;
       const y = (ty ?? n.top ?? 0) + top;
-      return { x, y, width: Math.max(1, right - left), height: Math.max(1, bottom - top) };
+      const bounds = { left: x, top: y, right: x + Math.max(1, right - left), bottom: y + Math.max(1, bottom - top) };
+      return fromBounds(bounds);
     }
   }
   const explicit = getUnitsBounds(textInfo.bounds) || getUnitsBounds(textInfo.boundingBox);
   if (explicit) {
-    return {
-      x: explicit.left,
-      y: explicit.top,
-      width: Math.max(1, explicit.right - explicit.left),
-      height: Math.max(1, explicit.bottom - explicit.top),
-    };
+    return fromBounds(explicit);
   }
-  const left = textInfo.left ?? n.left ?? 0;
-  const top = textInfo.top ?? n.top ?? 0;
-  const right = textInfo.right ?? n.right ?? left + 1;
-  const bottom = textInfo.bottom ?? n.bottom ?? top + 1;
-  return { x: left, y: top, width: Math.max(1, right - left), height: Math.max(1, bottom - top) };
+  return exactNodeBounds;
 }
 
 function getPsdTextScale(style: PsdTextStyle) {
@@ -478,13 +512,20 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
         align?: "left" | "center" | "right";
         rtl?: boolean;
         originalFontFamily?: string;
+        missingFont?: boolean;
         fontMissing?: boolean;
         autoFit?: boolean;
         lineHeight?: number;
+        letterSpacing?: number;
         scaleXText?: number;
+        psdBounds?: { left: number; top: number; right: number; bottom: number };
+        psdTextTransform?: unknown;
+        psdLeading?: number;
+        psdBaselineOffset?: number;
       };
       const out: Out[] = [];
       const missingFonts = new Set<string>();
+      await loadUserFontsOnce();
       await loadCustomFontsOnce();
       await document.fonts?.ready;
       const walk = (nodes: PsdNode[] | undefined) => {
@@ -543,10 +584,16 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
               align,
               rtl: resolvedFont.family.includes("Urdu") || resolvedFont.family.includes("Arabic"),
               originalFontFamily: resolvedFont.requested,
+              missingFont: resolvedFont.missing,
               fontMissing: resolvedFont.missing,
               autoFit: false,
               lineHeight: getPsdLineHeight(style, fontSize),
+              letterSpacing: getPsdLetterSpacing(style, fontSize),
               scaleXText: getPsdTextScale(style) * transformScale.sx,
+              psdBounds: textBounds.psdBounds,
+              psdTextTransform: textInfo.transform,
+              psdLeading: getPsdLeading(style),
+              psdBaselineOffset: getPsdBaselineOffset(style),
               fill: getPsdFillColor(style),
             });
             continue;
