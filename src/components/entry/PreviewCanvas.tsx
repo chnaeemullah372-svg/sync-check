@@ -330,9 +330,12 @@ export function PreviewCanvas({
                   fontFamily={t.fontFamily}
                   fontStyle={t.fontStyle}
                   lineHeight={t.lineHeight ?? 1.2}
+                  letterSpacing={t.letterSpacing ?? 0}
                   scaleX={t.scaleXText ?? 1}
                   fill={t.fill}
                   align={t.align}
+                  verticalAlign="top"
+                  direction={t.rtl ? "rtl" : "ltr"}
                   rotation={t.rotation}
                   opacity={t.opacity}
                   visible={t.visible}
