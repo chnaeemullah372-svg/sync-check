@@ -270,6 +270,22 @@ function getPsdLineHeight(style: PsdTextStyle, fontSize: number) {
   return 1.2;
 }
 
+function getPsdLeading(style: PsdTextStyle) {
+  const raw = Number(sizedValue(style.leading));
+  return Number.isFinite(raw) && raw > 0 ? raw : undefined;
+}
+
+function getPsdBaselineOffset(style: PsdTextStyle) {
+  const raw = Number(sizedValue(style.baselineShift));
+  return Number.isFinite(raw) ? raw : undefined;
+}
+
+function getPsdLetterSpacing(style: PsdTextStyle, fontSize: number) {
+  const raw = Number(sizedValue(style.tracking));
+  if (!Number.isFinite(raw) || !fontSize) return undefined;
+  return Math.max(-200, Math.min(200, (raw / 1000) * fontSize));
+}
+
 function unitValue(input: unknown): number | null {
   if (typeof input === "number" && Number.isFinite(input)) return input;
   if (input && typeof input === "object" && "value" in input) {
@@ -294,28 +310,35 @@ function getPsdTextBounds(n: PsdNode, textInfo: PsdTextInfo) {
   const transform = Array.isArray(textInfo.transform) ? textInfo.transform.map(Number) : null;
   const tx = transform && Number.isFinite(transform[4]) ? transform[4] : undefined;
   const ty = transform && Number.isFinite(transform[5]) ? transform[5] : undefined;
+  const nodeBounds = {
+    left: n.left ?? 0,
+    top: n.top ?? 0,
+    right: n.right ?? (n.left ?? 0) + 1,
+    bottom: n.bottom ?? (n.top ?? 0) + 1,
+  };
+  const fromBounds = (bounds: { left: number; top: number; right: number; bottom: number }) => ({
+    x: bounds.left,
+    y: bounds.top,
+    width: Math.max(1, bounds.right - bounds.left),
+    height: Math.max(1, bounds.bottom - bounds.top),
+    psdBounds: bounds,
+  });
+  const exactNodeBounds = fromBounds(nodeBounds);
+  if (String(textInfo.shapeType || "").toLowerCase() === "point") return exactNodeBounds;
   if (Array.isArray(textInfo.boxBounds) && textInfo.boxBounds.length >= 4) {
     const [top, left, bottom, right] = textInfo.boxBounds.map(Number);
     if ([top, left, bottom, right].every(Number.isFinite)) {
       const x = (tx ?? n.left ?? 0) + left;
       const y = (ty ?? n.top ?? 0) + top;
-      return { x, y, width: Math.max(1, right - left), height: Math.max(1, bottom - top) };
+      const bounds = { left: x, top: y, right: x + Math.max(1, right - left), bottom: y + Math.max(1, bottom - top) };
+      return fromBounds(bounds);
     }
   }
   const explicit = getUnitsBounds(textInfo.bounds) || getUnitsBounds(textInfo.boundingBox);
   if (explicit) {
-    return {
-      x: explicit.left,
-      y: explicit.top,
-      width: Math.max(1, explicit.right - explicit.left),
-      height: Math.max(1, explicit.bottom - explicit.top),
-    };
+    return fromBounds(explicit);
   }
-  const left = textInfo.left ?? n.left ?? 0;
-  const top = textInfo.top ?? n.top ?? 0;
-  const right = textInfo.right ?? n.right ?? left + 1;
-  const bottom = textInfo.bottom ?? n.bottom ?? top + 1;
-  return { x: left, y: top, width: Math.max(1, right - left), height: Math.max(1, bottom - top) };
+  return exactNodeBounds;
 }
 
 function getPsdTextScale(style: PsdTextStyle) {
