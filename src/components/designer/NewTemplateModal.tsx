@@ -531,7 +531,6 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
         height: number;
         rotation?: number;
         opacity?: number;
-        visible?: boolean;
         src?: string;
         text?: string;
         fontSize?: number;
@@ -609,7 +608,6 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
               width: textBounds.width,
               height: textBounds.height,
               opacity: getPsdOpacity(n),
-              visible: !bgSrc,
               text: n.text.text,
               fontSize,
               fontFamily: resolvedFont.family,
@@ -646,7 +644,6 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
               width: w,
               height: h,
               opacity: getPsdOpacity(n),
-              visible: !bgSrc,
               src,
             });
           } catch {
@@ -655,6 +652,23 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
         }
       };
       walk(psd.children as unknown as PsdNode[] | undefined);
+
+      const isLargeImageLayer = (layer: Out) => {
+        if (layer.type !== "image") return false;
+        const layerArea = layer.width * layer.height;
+        const canvasArea = Math.max(1, W * H);
+        const name = layer.name.toLowerCase();
+        return (
+          layerArea >= canvasArea * 0.25 ||
+          /background|template|base|front|back|card|cnic|nic|psd|jpg|jpeg|png/.test(name)
+        );
+      };
+      const orderWeight = (layer: Out) => {
+        if (layer.type === "image" && isLargeImageLayer(layer)) return 0;
+        if (layer.type === "image") return 1;
+        return 2;
+      };
+      out.sort((a, b) => orderWeight(a) - orderWeight(b));
 
       // Stage before navigation; IndexedDB fallback survives route reloads / preview refreshes.
       await setStagedPsd({ width: W, height: H, background: bgSrc, layers: out });
