@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "xuZVW2zNGBAM_RxKT7Fct"
+uri = "file://psd-hidden-layer-fix.patch.txt"
+type = "text"
+title = "PSD hidden-layer import fix (git patch)"
