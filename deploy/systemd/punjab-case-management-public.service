@@ -1,0 +1,19 @@
+[Unit]
+Description=Punjab Case Management public frontend
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/var/www/punjab-case-management/current
+EnvironmentFile=/etc/punjab-case-management/public.env
+Environment=HOST=127.0.0.1
+Environment=PORT=3100
+Environment=APP_SURFACE=public
+ExecStart=/usr/bin/env npm run start:node
+Restart=always
+RestartSec=5
+User=www-data
+Group=www-data
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,19 @@
+[Unit]
+Description=Punjab Case Management admin panel
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/var/www/punjab-case-management/current
+EnvironmentFile=/etc/punjab-case-management/admin.env
+Environment=HOST=127.0.0.1
+Environment=PORT=3101
+Environment=APP_SURFACE=admin
+ExecStart=/usr/bin/env npm run start:node
+Restart=always
+RestartSec=5
+User=www-data
+Group=www-data
+
+[Install]
+WantedBy=multi-user.target

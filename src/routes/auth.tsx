@@ -24,6 +24,43 @@ function toEmail(input: string) {
   return `${v.toLowerCase()}@admin.local`;
 }
 
+function sameProtocolUrl(host: string, path: string) {
+  const protocol = window.location.protocol || "https:";
+  return `${protocol}//${host}${path}`;
+}
+
+function redirectAfterLogin(role: "admin" | "user") {
+  if (typeof window === "undefined") return null;
+  const adminHosts = (import.meta.env.VITE_ADMIN_HOSTS || "admin.punjab-case-management.live")
+    .split(",")
+    .map((host: string) => host.trim().toLowerCase())
+    .filter(Boolean);
+  const publicHosts = (
+    import.meta.env.VITE_PUBLIC_HOSTS ||
+    "punjab-case-management.live,www.punjab-case-management.live"
+  )
+    .split(",")
+    .map((host: string) => host.trim().toLowerCase())
+    .filter(Boolean);
+  const currentHost = window.location.hostname.toLowerCase();
+
+  if (role === "admin") {
+    const path = "/card/admin";
+    if (!adminHosts.includes(currentHost) && adminHosts[0]) {
+      window.location.assign(sameProtocolUrl(adminHosts[0], path));
+      return "external";
+    }
+    return path;
+  }
+
+  const path = "/user";
+  if (adminHosts.includes(currentHost) && publicHosts[0]) {
+    window.location.assign(sameProtocolUrl(publicHosts[0], path));
+    return "external";
+  }
+  return path;
+}
+
 function AuthPage() {
   const navigate = useNavigate();
   const { user, role, loading } = useAuth();
@@ -34,7 +71,10 @@ function AuthPage() {
   useEffect(() => {
     if (loading) return;
     if (user && role) {
-      navigate({ to: role === "admin" ? "/card/admin" : "/user", replace: true });
+      const next = redirectAfterLogin(role);
+      if (next && next !== "external") {
+        navigate({ to: next, replace: true });
+      }
     }
   }, [user, role, loading, navigate]);
 

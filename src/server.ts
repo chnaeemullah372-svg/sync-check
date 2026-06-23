@@ -7,6 +7,9 @@ type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
 };
 
+const DEFAULT_PUBLIC_HOSTS = ["punjab-case-management.live", "www.punjab-case-management.live"];
+const DEFAULT_ADMIN_HOSTS = ["admin.punjab-case-management.live"];
+
 let serverEntryPromise: Promise<ServerEntry> | undefined;
 
 async function getServerEntry(): Promise<ServerEntry> {
@@ -37,9 +40,69 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
   });
 }
 
+function readRuntimeEnv(env: unknown, key: string) {
+  if (env && typeof env === "object" && key in env) {
+    const value = (env as Record<string, unknown>)[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return process.env[key]?.trim();
+}
+
+function readHostList(env: unknown, key: string, fallback: string[]) {
+  const raw = readRuntimeEnv(env, key);
+  return new Set(
+    (raw ? raw.split(",") : fallback)
+      .map((host) => host.trim().toLowerCase())
+      .filter(Boolean),
+  );
+}
+
+function hostWithoutPort(request: Request) {
+  return (request.headers.get("x-forwarded-host") || request.headers.get("host") || "")
+    .split(",")[0]
+    .trim()
+    .toLowerCase()
+    .replace(/:\d+$/, "");
+}
+
+function domainGate(request: Request, env: unknown) {
+  const url = new URL(request.url);
+  const host = hostWithoutPort(request);
+  const surface = readRuntimeEnv(env, "APP_SURFACE")?.toLowerCase() ?? "all";
+  const publicHosts = readHostList(env, "PUBLIC_HOSTS", DEFAULT_PUBLIC_HOSTS);
+  const adminHosts = readHostList(env, "ADMIN_HOSTS", DEFAULT_ADMIN_HOSTS);
+  const adminPath = /^\/(?:admin(?:\/|$)|card\/admin(?:\/|$))/.test(url.pathname);
+  const userPath = /^\/user(?:\/|$)/.test(url.pathname);
+  const publicSurface = surface === "public" || publicHosts.has(host);
+  const adminSurface = surface === "admin" || adminHosts.has(host);
+
+  if (publicSurface && adminPath) {
+    return new Response("Not found", {
+      status: 404,
+      headers: { "content-type": "text/plain; charset=utf-8" },
+    });
+  }
+
+  if (adminSurface && url.pathname === "/") {
+    return Response.redirect(new URL("/card/admin", url), 302);
+  }
+
+  if (adminSurface && userPath) {
+    return new Response("Not found", {
+      status: 404,
+      headers: { "content-type": "text/plain; charset=utf-8" },
+    });
+  }
+
+  return undefined;
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      const gated = domainGate(request, env);
+      if (gated) return gated;
+
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);
