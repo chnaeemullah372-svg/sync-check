@@ -98,15 +98,6 @@ const SYSTEM_FONTS = new Set([
   "Tahoma",
   "Trebuchet MS",
   "Impact",
-  "Calibri",
-  "Cambria",
-  "Candara",
-  "Century Gothic",
-  "Franklin Gothic Medium",
-  "Garamond",
-  "Gill Sans",
-  "Palatino",
-  "Segoe UI",
 ]);
 // Fonts listed in FONT_LIBRARY but NOT loaded by the global <link> tag and
 // NOT available as an uploaded custom font. Treat as missing -> use fallback.
@@ -161,6 +152,7 @@ type PsdNode = {
   top?: number;
   right?: number;
   bottom?: number;
+  opacity?: number;
   children?: PsdNode[];
   text?: PsdTextInfo;
   canvas?: HTMLCanvasElement;
@@ -246,6 +238,12 @@ function resolvePsdFont(raw: unknown) {
   return { family: fallbackFontFor(requested), requested: rawName, missing: true };
 }
 
+function getPsdOpacity(n: PsdNode) {
+  const raw = Number(n.opacity ?? 1);
+  if (!Number.isFinite(raw)) return 1;
+  return Math.max(0, Math.min(1, raw > 1 ? raw / 255 : raw));
+}
+
 function sizedValue(input: unknown) {
   if (input && typeof input === "object" && "value" in input) {
     return (input as PsdSizedValue).value;
@@ -307,6 +305,13 @@ function getUnitsBounds(input: unknown) {
   return null;
 }
 
+function getTransformPoint(transform: number[] | null, x: number, y: number) {
+  if (!transform || transform.length < 6) return null;
+  const [a, b, c, d, tx, ty] = transform;
+  if (![a, b, c, d, tx, ty].every(Number.isFinite)) return null;
+  return { x: a * x + c * y + tx, y: b * x + d * y + ty };
+}
+
 function getPsdTextBounds(n: PsdNode, textInfo: PsdTextInfo) {
   const transform = Array.isArray(textInfo.transform) ? textInfo.transform.map(Number) : null;
   const tx = transform && Number.isFinite(transform[4]) ? transform[4] : undefined;
@@ -325,6 +330,25 @@ function getPsdTextBounds(n: PsdNode, textInfo: PsdTextInfo) {
     height: Math.max(1, bounds.bottom - bounds.top),
     psdBounds: bounds,
   });
+  if (Array.isArray(textInfo.boxBounds) && textInfo.boxBounds.length >= 4) {
+    const [top, left, bottom, right] = textInfo.boxBounds.map(Number);
+    if ([top, left, bottom, right].every(Number.isFinite)) {
+      const origin = getTransformPoint(transform, left, top);
+      const x = origin?.x ?? (tx ?? n.left ?? 0) + left;
+      const y = origin?.y ?? (ty ?? n.top ?? 0) + top;
+      const bounds = {
+        left: x,
+        top: y,
+        right: x + Math.max(1, right - left),
+        bottom: y + Math.max(1, bottom - top),
+      };
+      return fromBounds(bounds);
+    }
+  }
+  const explicit = getUnitsBounds(textInfo.bounds) || getUnitsBounds(textInfo.boundingBox);
+  if (explicit) {
+    return fromBounds(explicit);
+  }
   const exactNodeBounds = fromBounds(nodeBounds);
   const hasExactNodeBounds = [
     rawNodeBounds.left,
@@ -333,19 +357,6 @@ function getPsdTextBounds(n: PsdNode, textInfo: PsdTextInfo) {
     rawNodeBounds.bottom,
   ].every((value) => typeof value === "number" && Number.isFinite(value)) && nodeBounds.right > nodeBounds.left && nodeBounds.bottom > nodeBounds.top;
   if (hasExactNodeBounds) return exactNodeBounds;
-  if (Array.isArray(textInfo.boxBounds) && textInfo.boxBounds.length >= 4) {
-    const [top, left, bottom, right] = textInfo.boxBounds.map(Number);
-    if ([top, left, bottom, right].every(Number.isFinite)) {
-      const x = (tx ?? n.left ?? 0) + left;
-      const y = (ty ?? n.top ?? 0) + top;
-      const bounds = { left: x, top: y, right: x + Math.max(1, right - left), bottom: y + Math.max(1, bottom - top) };
-      return fromBounds(bounds);
-    }
-  }
-  const explicit = getUnitsBounds(textInfo.bounds) || getUnitsBounds(textInfo.boundingBox);
-  if (explicit) {
-    return fromBounds(explicit);
-  }
   return exactNodeBounds;
 }
 
@@ -503,6 +514,7 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
         width: number;
         height: number;
         rotation?: number;
+        opacity?: number;
         src?: string;
         text?: string;
         fontSize?: number;
@@ -530,12 +542,14 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
       await document.fonts?.ready;
       const walk = (nodes: PsdNode[] | undefined) => {
         if (!nodes) return;
-        for (const n of nodes) {
+        // ag-psd exposes Photoshop's layer panel order top-to-bottom. Konva
+        // paints array order bottom-to-top, so import each sibling list in reverse.
+        for (const n of [...nodes].reverse()) {
+          if (n.hidden) continue;
           if (n.children) {
             walk(n.children);
             continue;
           }
-          if (n.hidden) continue;
           const left = n.left ?? 0;
           const top = n.top ?? 0;
           const right = n.right ?? left;
@@ -557,7 +571,8 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
             );
             if (resolvedFont.missing) missingFonts.add(resolvedFont.requested);
             const transformScale = getTextTransformScale(textInfo);
-            const fontSize = getPsdFontSize(style, textBounds.height) * transformScale.sy;
+            const baseFontSize = getPsdFontSize(style, textBounds.height);
+            const fontSize = baseFontSize * transformScale.sy;
             const paragraph =
               textInfo.paragraphStyle || textInfo.paragraphStyleRuns?.[0]?.style || {};
             const justification = String(
@@ -576,6 +591,7 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
               y: textBounds.y,
               width: textBounds.width,
               height: textBounds.height,
+              opacity: getPsdOpacity(n),
               text: n.text.text,
               fontSize,
               fontFamily: resolvedFont.family,
@@ -587,7 +603,7 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
               missingFont: resolvedFont.missing,
               fontMissing: resolvedFont.missing,
               autoFit: false,
-              lineHeight: getPsdLineHeight(style, fontSize),
+              lineHeight: getPsdLineHeight(style, baseFontSize),
               letterSpacing: getPsdLetterSpacing(style, fontSize),
               scaleXText: getPsdTextScale(style) * transformScale.sx,
               psdBounds: textBounds.psdBounds,
@@ -611,6 +627,7 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
               y: top,
               width: w,
               height: h,
+              opacity: getPsdOpacity(n),
               src,
             });
           } catch {

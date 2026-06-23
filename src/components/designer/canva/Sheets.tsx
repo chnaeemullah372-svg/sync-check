@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import {
   AlignLeft, AlignCenter, AlignRight, Bold, Italic, Underline as UnderlineIcon,
   Eye, EyeOff, Lock, Unlock, Trash2, ChevronUp, ChevronDown, Layers as LayersIcon, ChevronRight,
-  Upload,
+  Upload, AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -434,35 +434,56 @@ export function LayersSheet() {
                 <span className="text-[10px] text-muted-foreground">{slotLayers.length}</span>
               </button>
               <div className="divide-y">
-                {slotLayers.map((l) => (
-                  <div key={l.id}
-                    className={cn("flex items-center gap-2 px-3 py-2 text-sm cursor-pointer",
-                      selectedId === l.id ? "bg-primary/10" : "hover:bg-accent")}
-                    onClick={() => selectLayer(l.id)}>
-                    <button onClick={(e) => { e.stopPropagation(); updateLayer(l.id, { visible: !l.visible } as any); }}
-                      className="h-7 w-7 grid place-items-center hover:bg-accent rounded">
-                      {l.visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); updateLayer(l.id, { locked: !l.locked } as any); }}
-                      className="h-7 w-7 grid place-items-center hover:bg-accent rounded">
-                      {l.locked ? <Lock className="h-4 w-4 text-amber-600" /> : <Unlock className="h-4 w-4 text-muted-foreground" />}
-                    </button>
-                    <span className="truncate flex-1">{l.name}</span>
-                    <span className="text-[10px] text-muted-foreground uppercase shrink-0">{l.type}</span>
-                    <button onClick={(e) => { e.stopPropagation(); moveLayer(l.id, "up"); }}
-                      className="h-7 w-7 grid place-items-center hover:bg-accent rounded">
-                      <ChevronUp className="h-4 w-4" />
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); moveLayer(l.id, "down"); }}
-                      className="h-7 w-7 grid place-items-center hover:bg-accent rounded">
-                      <ChevronDown className="h-4 w-4" />
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); deleteLayer(l.id); }}
-                      className="h-7 w-7 grid place-items-center hover:bg-destructive/10 text-destructive rounded">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
+                {slotLayers.map((l) => {
+                  const textLayer = l.type === "text" ? l : null;
+                  const missingFont = !!(textLayer?.missingFont ?? textLayer?.fontMissing);
+                  const originalFont = textLayer?.originalFontFamily || textLayer?.fontFamily;
+                  return (
+                    <div key={l.id}
+                      className={cn("flex items-center gap-2 px-3 py-2 text-sm cursor-pointer",
+                        selectedId === l.id ? "bg-primary/10" : "hover:bg-accent")}
+                      onClick={() => selectLayer(l.id)}>
+                      <button onClick={(e) => { e.stopPropagation(); updateLayer(l.id, { visible: !l.visible } as any); }}
+                        className="h-7 w-7 grid place-items-center hover:bg-accent rounded">
+                        {l.visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); updateLayer(l.id, { locked: !l.locked } as any); }}
+                        className="h-7 w-7 grid place-items-center hover:bg-accent rounded">
+                        {l.locked ? <Lock className="h-4 w-4 text-amber-600" /> : <Unlock className="h-4 w-4 text-muted-foreground" />}
+                      </button>
+                      {textLayer && missingFont ? (
+                        <span
+                          title={`Missing font: ${originalFont || "unknown"}. Fallback: ${textLayer.fontFamily}`}
+                          className="text-amber-600 shrink-0"
+                        >
+                          <AlertTriangle className="h-4 w-4" />
+                        </span>
+                      ) : null}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate">{l.name}</span>
+                        {textLayer && (
+                          <span className={cn("block truncate text-[10px] leading-tight text-muted-foreground", missingFont && "text-amber-600")}>
+                            Font: {originalFont}
+                            {missingFont ? ` -> ${textLayer.fontFamily}` : ""}
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground uppercase shrink-0">{l.type}</span>
+                      <button onClick={(e) => { e.stopPropagation(); moveLayer(l.id, "up"); }}
+                        className="h-7 w-7 grid place-items-center hover:bg-accent rounded">
+                        <ChevronUp className="h-4 w-4" />
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); moveLayer(l.id, "down"); }}
+                        className="h-7 w-7 grid place-items-center hover:bg-accent rounded">
+                        <ChevronDown className="h-4 w-4" />
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); deleteLayer(l.id); }}
+                        className="h-7 w-7 grid place-items-center hover:bg-destructive/10 text-destructive rounded">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );
