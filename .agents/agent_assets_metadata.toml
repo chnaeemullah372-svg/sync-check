@@ -6,3 +6,15 @@ id = "xuZVW2zNGBAM_RxKT7Fct"
 uri = "file://psd-hidden-layer-fix.patch.txt"
 type = "text"
 title = "PSD hidden-layer import fix (git patch)"
+
+[[outputs]]
+id = "NNjnypRrlQp3-TXcJEd9y"
+uri = "file://psd-proof/psd3_compare.png"
+type = "image"
+title = "ID Card PSD — Ground truth | Current (squished) | Fixed"
+
+[[outputs]]
+id = "ECy43nBcC4ahRElLLLxgV"
+uri = "file://psd-proof/ops2_compare.png"
+type = "image"
+title = "FRC PSD — Ground truth | Current (squished) | Fixed"

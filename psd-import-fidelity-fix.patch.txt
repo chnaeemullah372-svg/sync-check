@@ -1,0 +1,30 @@
+diff --git a/src/components/designer/NewTemplateModal.tsx b/src/components/designer/NewTemplateModal.tsx
+index f203eb9..4342065 100644
+--- a/src/components/designer/NewTemplateModal.tsx
++++ b/src/components/designer/NewTemplateModal.tsx
+@@ -531,11 +531,13 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
+       const walk = (nodes: PsdNode[] | undefined) => {
+         if (!nodes) return;
+         for (const n of nodes) {
++          // Skip hidden nodes FIRST — a hidden group must not leak its
++          // children into the import (otherwise hidden text reappears).
++          if (n.hidden) continue;
+           if (n.children) {
+             walk(n.children);
+             continue;
+           }
+-          if (n.hidden) continue;
+           const left = n.left ?? 0;
+           const top = n.top ?? 0;
+           const right = n.right ?? left;
+@@ -589,7 +591,9 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
+               autoFit: false,
+               lineHeight: getPsdLineHeight(style, fontSize),
+               letterSpacing: getPsdLetterSpacing(style, fontSize),
+-              scaleXText: getPsdTextScale(style) * transformScale.sx,
++              scaleXText:
++                getPsdTextScale(style) *
++                (transformScale.sy > 0 ? transformScale.sx / transformScale.sy : transformScale.sx),
+               psdBounds: textBounds.psdBounds,
+               psdTextTransform: textInfo.transform,
+               psdLeading: getPsdLeading(style),
