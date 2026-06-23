@@ -312,6 +312,22 @@ function getTransformPoint(transform: number[] | null, x: number, y: number) {
   return { x: a * x + c * y + tx, y: b * x + d * y + ty };
 }
 
+function getTranslatedTextBounds(
+  bounds: { left: number; top: number; right: number; bottom: number },
+  transform: number[] | null,
+  fallbackX: number,
+  fallbackY: number,
+) {
+  const tx = transform && Number.isFinite(transform[4]) ? transform[4] : fallbackX;
+  const ty = transform && Number.isFinite(transform[5]) ? transform[5] : fallbackY;
+  return {
+    left: tx + bounds.left,
+    top: ty + bounds.top,
+    right: tx + bounds.right,
+    bottom: ty + bounds.bottom,
+  };
+}
+
 function getPsdTextBounds(n: PsdNode, textInfo: PsdTextInfo) {
   const transform = Array.isArray(textInfo.transform) ? textInfo.transform.map(Number) : null;
   const tx = transform && Number.isFinite(transform[4]) ? transform[4] : undefined;
@@ -330,6 +346,10 @@ function getPsdTextBounds(n: PsdNode, textInfo: PsdTextInfo) {
     height: Math.max(1, bounds.bottom - bounds.top),
     psdBounds: bounds,
   });
+  const explicit = getUnitsBounds(textInfo.bounds) || getUnitsBounds(textInfo.boundingBox);
+  if (explicit) {
+    return fromBounds(getTranslatedTextBounds(explicit, transform, n.left ?? 0, n.top ?? 0));
+  }
   if (Array.isArray(textInfo.boxBounds) && textInfo.boxBounds.length >= 4) {
     const [top, left, bottom, right] = textInfo.boxBounds.map(Number);
     if ([top, left, bottom, right].every(Number.isFinite)) {
@@ -344,10 +364,6 @@ function getPsdTextBounds(n: PsdNode, textInfo: PsdTextInfo) {
       };
       return fromBounds(bounds);
     }
-  }
-  const explicit = getUnitsBounds(textInfo.bounds) || getUnitsBounds(textInfo.boundingBox);
-  if (explicit) {
-    return fromBounds(explicit);
   }
   const exactNodeBounds = fromBounds(nodeBounds);
   const hasExactNodeBounds = [

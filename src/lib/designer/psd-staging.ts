@@ -45,7 +45,6 @@ export async function consumeStagedPsd(): Promise<StagedPsd | null> {
   if (staged) {
     lastConsumed = { payload: staged, at: Date.now() };
     staged = null;
-    void del(PERSIST_KEY);
     return lastConsumed.payload;
   }
   if (lastConsumed && Date.now() - lastConsumed.at < CONSUME_TTL_MS) {
@@ -62,7 +61,6 @@ export async function consumeStagedPsd(): Promise<StagedPsd | null> {
         layers: persisted.layers,
       };
       lastConsumed = { payload, at: Date.now() };
-      void del(PERSIST_KEY);
       return payload;
     }
     if (persisted) void del(PERSIST_KEY);
