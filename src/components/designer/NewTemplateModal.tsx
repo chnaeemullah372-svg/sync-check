@@ -531,6 +531,7 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
         height: number;
         rotation?: number;
         opacity?: number;
+        visible?: boolean;
         src?: string;
         text?: string;
         fontSize?: number;
@@ -608,6 +609,7 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
               width: textBounds.width,
               height: textBounds.height,
               opacity: getPsdOpacity(n),
+              visible: !bgSrc,
               text: n.text.text,
               fontSize,
               fontFamily: resolvedFont.family,
@@ -644,6 +646,7 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
               width: w,
               height: h,
               opacity: getPsdOpacity(n),
+              visible: !bgSrc,
               src,
             });
           } catch {

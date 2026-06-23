@@ -44,6 +44,7 @@ type ImportedPsdLayer = {
   height?: number;
   rotation?: number;
   opacity?: number;
+  visible?: boolean;
   src?: string;
   text?: string;
   fontSize?: number;
@@ -447,7 +448,7 @@ function DesignerPage() {
               height: l.height ?? 32,
               rotation: l.rotation || 0,
               opacity: l.opacity ?? 1,
-              visible: true,
+              visible: l.visible ?? true,
               locked: false,
               text: l.text || "",
               fontSize: l.fontSize || 24,
@@ -479,7 +480,7 @@ function DesignerPage() {
             height: l.height ?? 120,
             rotation: 0,
             opacity: l.opacity ?? 1,
-            visible: true,
+            visible: l.visible ?? true,
             locked: false,
             src: l.src ?? null,
             fit: "stretch" as const,

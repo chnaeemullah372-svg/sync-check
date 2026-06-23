@@ -2,12 +2,11 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-async function assertAdmin(userId: string) {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data, error } = await supabaseAdmin
+async function assertAdmin(context: { supabase: any; userId: string }) {
+  const { data, error } = await context.supabase
     .from("user_roles")
     .select("role")
-    .eq("user_id", userId)
+    .eq("user_id", context.userId)
     .eq("role", "admin")
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -36,12 +35,12 @@ export const saveTemplate = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await assertAdmin(context);
+    const supabase = context.supabase;
 
     let templateId = data.templateId;
     if (templateId) {
-      const { error } = await supabaseAdmin
+      const { error } = await supabase
         .from("templates")
         .update({
           name: data.name,
@@ -57,7 +56,7 @@ export const saveTemplate = createServerFn({ method: "POST" })
         .eq("id", templateId);
       if (error) throw new Error(error.message);
     } else {
-      const { data: ins, error } = await supabaseAdmin
+      const { data: ins, error } = await supabase
         .from("templates")
         .insert({
           name: data.name,
@@ -77,14 +76,14 @@ export const saveTemplate = createServerFn({ method: "POST" })
       templateId = ins.id;
     }
 
-    const { data: existing } = await supabaseAdmin
+    const { data: existing } = await supabase
       .from("template_objects")
       .select("id, version")
       .eq("template_id", templateId)
       .maybeSingle();
 
     if (existing) {
-      const { error } = await supabaseAdmin
+      const { error } = await supabase
         .from("template_objects")
         .update({
           objects: data.snapshot ?? [],
@@ -94,7 +93,7 @@ export const saveTemplate = createServerFn({ method: "POST" })
         .eq("id", existing.id);
       if (error) throw new Error(error.message);
     } else {
-      const { error } = await supabaseAdmin.from("template_objects").insert({
+      const { error } = await supabase.from("template_objects").insert({
         template_id: templateId,
         objects: data.snapshot ?? [],
         version: 1,
@@ -108,19 +107,15 @@ export const saveTemplate = createServerFn({ method: "POST" })
 export const loadTemplate = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ templateId: z.string().uuid() }))
-  .handler(async ({ data }) => {
-    // Read-only: any authenticated user (admin or regular) can load a template
-    // into the designer for viewing or per-user customization. RLS-equivalent
-    // gating happens at the higher layer (user must already have access to
-    // entries pointing at this template).
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: tpl, error } = await supabaseAdmin
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase;
+    const { data: tpl, error } = await supabase
       .from("templates")
       .select("id, name, page_size, width, height, background_url, category, ai_instructions")
       .eq("id", data.templateId)
       .single();
     if (error) throw new Error(error.message);
-    const { data: obj } = await supabaseAdmin
+    const { data: obj } = await supabase
       .from("template_objects")
       .select("objects")
       .eq("template_id", data.templateId)
@@ -133,15 +128,15 @@ export const duplicateTemplateFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ templateId: z.string().uuid() }))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: src, error } = await supabaseAdmin
+    await assertAdmin(context);
+    const supabase = context.supabase;
+    const { data: src, error } = await supabase
       .from("templates")
       .select("name, page_size, width, height, background_url, category, ai_instructions")
       .eq("id", data.templateId)
       .single();
     if (error) throw new Error(error.message);
-    const { data: ins, error: insErr } = await supabaseAdmin
+    const { data: ins, error: insErr } = await supabase
       .from("templates")
       .insert({
         name: `${src.name} (copy)`,
@@ -157,12 +152,12 @@ export const duplicateTemplateFn = createServerFn({ method: "POST" })
       .select("id")
       .single();
     if (insErr) throw new Error(insErr.message);
-    const { data: obj } = await supabaseAdmin
+    const { data: obj } = await supabase
       .from("template_objects")
       .select("objects")
       .eq("template_id", data.templateId)
       .maybeSingle();
-    await supabaseAdmin.from("template_objects").insert({
+    await supabase.from("template_objects").insert({
       template_id: ins.id,
       objects: obj?.objects ?? [],
       version: 1,
