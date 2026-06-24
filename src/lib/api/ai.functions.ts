@@ -19,8 +19,19 @@ const PROVIDER_KEY_NAMES: Record<string, string> = {
 
 async function loadProviderKey(
   provider: "openai" | "gemini" | "claude" | null,
+  supabase?: any,
 ): Promise<string | null> {
   if (!provider) return null;
+  if (supabase) {
+    try {
+      const { data } = await supabase
+        .from("ai_provider_keys")
+        .select("api_key")
+        .eq("provider", provider)
+        .maybeSingle();
+      if (data?.api_key) return data.api_key as string;
+    } catch { /* ignore */ }
+  }
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data } = await supabaseAdmin
@@ -197,6 +208,11 @@ const GeneratedLayer = z.object({
   faceCrop: z.string().optional(),
 });
 
+const GeneratedTemplate = z.object({
+  layers: z.array(GeneratedLayer).min(1).max(120),
+  templateAiInstructions: z.string().max(4000).optional(),
+});
+
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
@@ -254,6 +270,94 @@ function cnicLayout(width: number, height: number) {
   ];
 }
 
+function normalizeImageUrl(image: string) {
+  return image.startsWith("data:") ? image : `data:image/jpeg;base64,${image}`;
+}
+
+function clampGeneratedLayer(layer: z.infer<typeof GeneratedLayer>, canvasWidth: number, canvasHeight: number) {
+  const x = clamp(Math.round(layer.x), 0, Math.max(0, canvasWidth - 4));
+  const y = clamp(Math.round(layer.y), 0, Math.max(0, canvasHeight - 4));
+  const width = clamp(Math.round(layer.width), 8, Math.max(8, canvasWidth - x));
+  const height = clamp(Math.round(layer.height), 8, Math.max(8, canvasHeight - y));
+  return {
+    ...layer,
+    x,
+    y,
+    width,
+    height,
+    fontSize: layer.type === "text" ? clamp(Math.round(layer.fontSize ?? 18), 6, 220) : undefined,
+    fontFamily: layer.type === "text" ? (layer.fontFamily || (layer.rtl ? "Jameel Noori Nastaleeq" : "Roboto Condensed")) : undefined,
+    fill: layer.type === "text" ? (layer.fill || "#111111") : undefined,
+    align: layer.type === "text" ? (layer.align || (layer.rtl ? "right" : "left")) : undefined,
+  };
+}
+
+async function callOpenAiLayerVision(key: string, prompt: string, imageUrl: string) {
+  const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: "You are a precise document template layout engine. Return only strict JSON." },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            { type: "image_url", image_url: { url: imageUrl } },
+          ],
+        },
+      ],
+      response_format: { type: "json_object" },
+    }),
+  });
+  if (!resp.ok) throw new Error(`OpenAI layer generation failed (${resp.status})`);
+  const json: any = await resp.json();
+  return json?.choices?.[0]?.message?.content ?? "{}";
+}
+
+async function callGeminiLayerVision(key: string, prompt: string, imageUrl: string) {
+  const [, mime, b64] = imageUrl.match(/^data:([^;]+);base64,(.+)$/) ?? [];
+  if (!mime || !b64) throw new Error("Reference image must be a base64 data URL.");
+  const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mime, data: b64 } }] }],
+      generationConfig: { response_mime_type: "application/json" },
+    }),
+  });
+  if (!resp.ok) throw new Error(`Gemini layer generation failed (${resp.status})`);
+  const json: any = await resp.json();
+  return json?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
+}
+
+async function callLovableLayerVision(key: string, prompt: string, imageUrl: string) {
+  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Lovable-API-Key": key },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        { role: "system", content: "You are a precise document template layout engine. Return only strict JSON." },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            { type: "image_url", image_url: { url: imageUrl } },
+          ],
+        },
+      ],
+      response_format: { type: "json_object" },
+    }),
+  });
+  if (resp.status === 429) throw new Error("AI rate limit hit. Try again shortly.");
+  if (resp.status === 402) throw new Error("AI credits exhausted.");
+  if (!resp.ok) throw new Error(`Lovable AI layer generation failed (${resp.status})`);
+  const json: any = await resp.json();
+  return json?.choices?.[0]?.message?.content ?? "{}";
+}
+
 export const generateTemplateLayers = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
@@ -272,13 +376,84 @@ export const generateTemplateLayers = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     if (!isAdmin) throw new Error("Forbidden: admin only");
 
-    const layers = cnicLayout(data.canvasWidth, data.canvasHeight).map((layer) => GeneratedLayer.parse(layer));
+    if (!data.referenceImage) {
+      throw new Error("Upload a demo/reference image first. AI needs the demo file to place layers.");
+    }
+
+    const prompt = `
+Create an editable document template layer layout from the uploaded demo/reference image.
+
+Canvas size:
+- width: ${data.canvasWidth}px
+- height: ${data.canvasHeight}px
+
+Admin command:
+${data.instructions?.trim() || "Create editable CNIC/NADRA text and image layers matching the reference."}
+
+Return STRICT JSON only:
+{
+  "layers": [
+    {
+      "type": "text" | "image",
+      "name": "human readable layer name",
+      "fieldKey": "name|father_name|cnic|dob|doi|address|photo|thumb|signature|custom_1|custom_2|custom_3",
+      "x": number, "y": number, "width": number, "height": number,
+      "text": "sample text for text layers",
+      "fontSize": number,
+      "fontFamily": "Jameel Noori Nastaleeq|Roboto Condensed|Arial|Noto Naskh Arabic",
+      "rtl": boolean,
+      "align": "left"|"center"|"right",
+      "fill": "#111111",
+      "aiInstruction": "how to fill this layer"
+    }
+  ],
+  "templateAiInstructions": "overall user-side fill instructions"
+}
+
+Rules:
+- Match the reference image positions as closely as possible in canvas pixels.
+- Create separate editable layers for visible variable text fields.
+- Create image placeholder layers for photo, thumb/fingerprint, signature/QR if needed.
+- Urdu text must use rtl=true, right alignment, and Jameel Noori Nastaleeq unless the command says otherwise.
+- Numeric fields like CNIC and dates must use Latin digits and Roboto Condensed/Arial.
+- Do not return prose, markdown, comments, or explanations.
+`.trim();
+
+    const imageUrl = normalizeImageUrl(data.referenceImage);
+    let raw = "{}";
+    const lovableKey = process.env.LOVABLE_API_KEY;
+    if (lovableKey) {
+      raw = await callLovableLayerVision(lovableKey, prompt, imageUrl);
+    } else {
+      const { data: settings } = await context.supabase
+        .from("ai_settings")
+        .select("provider")
+        .eq("id", 1)
+        .maybeSingle();
+      const provider = (settings?.provider ?? null) as "openai" | "gemini" | "claude" | null;
+      const openAiKey = provider === "openai" ? await loadProviderKey("openai", context.supabase) : await loadProviderKey("openai", context.supabase);
+      const geminiKey = provider === "gemini" ? await loadProviderKey("gemini", context.supabase) : await loadProviderKey("gemini", context.supabase);
+      if (provider === "gemini" && geminiKey) raw = await callGeminiLayerVision(geminiKey, prompt, imageUrl);
+      else if (provider === "openai" && openAiKey) raw = await callOpenAiLayerVision(openAiKey, prompt, imageUrl);
+      else if (geminiKey) raw = await callGeminiLayerVision(geminiKey, prompt, imageUrl);
+      else if (openAiKey) raw = await callOpenAiLayerVision(openAiKey, prompt, imageUrl);
+      else {
+        throw new Error("AI vision is not configured. Add LOVABLE_API_KEY, GEMINI_API_KEY, or OPENAI_API_KEY on the server/admin settings.");
+      }
+    }
+
+    let parsed: unknown = {};
+    try {
+      parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    } catch {
+      throw new Error("AI returned invalid JSON. Try again with clearer instructions.");
+    }
+    const generated = GeneratedTemplate.parse(parsed);
+    const layers = generated.layers.map((layer) => clampGeneratedLayer(layer, data.canvasWidth, data.canvasHeight));
     return {
       layers,
-      templateAiInstructions:
-        data.instructions?.trim() ||
-        "Fill CNIC/NADRA fields using layer field keys. Keep Urdu fields in Urdu script and dates in DD/MM/YYYY format.",
-      source: data.referenceImage ? "reference-image+command" : "command",
+      templateAiInstructions: generated.templateAiInstructions || data.instructions?.trim() || "",
+      source: "vision",
     };
   });
 

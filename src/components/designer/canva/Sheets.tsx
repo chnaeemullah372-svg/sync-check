@@ -493,7 +493,7 @@ export function AIInstructionsSheet() {
           }}
         />
         <div className="text-xs text-muted-foreground">
-          Upload a blank/background first, then add a demo/reference image and command. AI will create editable named layers with field keys.
+          Upload a blank/background first, then add a demo/reference image and command. A configured vision AI key is required; otherwise generation will stop with a setup error.
         </div>
         <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
           <div className="text-[11px] font-bold uppercase text-muted-foreground">Reference / demo image</div>
@@ -533,7 +533,7 @@ export function AIInstructionsSheet() {
             disabled={generating || !background.src}
             onClick={() => void applyGeneratedLayers()}
           >
-            {generating ? "Generating…" : "Generate Layers"}
+            {generating ? "Generating…" : "Generate Layers with AI"}
           </Button>
           <Button onClick={() => { setOpenSheet(null); toast.success("Instructions saved"); }}>Done</Button>
         </div>
