@@ -137,7 +137,8 @@ function TextNode({ layer, onSelect, onChange, onDragEnd, onDblClick, nodeRef, g
         const next: Partial<TextLayer> = { x: node.x(), y: node.y(),
           width: Math.max(20, (layer.width * sx) / baseTextScaleX), height: Math.max(10, (layer.height * sy) / baseTextScaleY),
           rotation: node.rotation() };
-        if (isCorner) {
+        const isPsdLayer = layer.autoFit === false || !!layer.originalFontFamily || !!layer.missingFont || !!layer.fontMissing;
+        if (isCorner && !isPsdLayer) {
           const factor = Math.abs(sy) || Math.abs(sx) || 1;
           next.fontSize = Math.max(6, Math.round(renderedFontSize * factor));
         }
