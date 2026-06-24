@@ -416,6 +416,7 @@ export function AIInstructionsSheet() {
           canvasHeight,
           instructions: text,
           referenceImage: referenceImage ?? undefined,
+          backgroundImage: background.src ?? undefined,
         },
       });
       const generated = (result?.layers ?? []).map((layer: any) => {
@@ -448,7 +449,7 @@ export function AIInstructionsSheet() {
           y: layer.y ?? 0,
           width: layer.width ?? 160,
           height: layer.height ?? 32,
-          rotation: 0,
+            rotation: layer.rotation ?? 0,
           opacity: 1,
           visible: true,
           locked: false,
@@ -457,12 +458,13 @@ export function AIInstructionsSheet() {
           fontFamily: layer.fontFamily || "Inter",
           fontStyle: "normal",
           fill: layer.fill || "#111827",
-          align: layer.align || "left",
+            align: layer.align === "center" || layer.align === "right" ? layer.align : "left",
           rtl: !!layer.rtl,
           fieldKey: layer.fieldKey || undefined,
           aiInstruction: layer.aiInstruction || undefined,
           autoFit: false,
-          lineHeight: 1.2,
+            lineHeight: layer.lineHeight ?? 1.15,
+            letterSpacing: layer.letterSpacing ?? 0,
         } as Layer;
       });
       if (generated.length === 0) throw new Error("AI did not return any layers.");
