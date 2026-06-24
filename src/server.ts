@@ -9,7 +9,7 @@ type ServerEntry = {
 
 const DEFAULT_PUBLIC_HOSTS = ["punjab-case-management.live", "www.punjab-case-management.live"];
 const DEFAULT_ADMIN_HOSTS = ["admin.punjab-case-management.live"];
-const DEPLOYMENT_MARKER = "24JUN-004";
+const DEPLOYMENT_MARKER = "24JUN-005";
 
 let serverEntryPromise: Promise<ServerEntry> | undefined;
 

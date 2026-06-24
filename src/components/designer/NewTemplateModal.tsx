@@ -556,6 +556,7 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
         lineHeight?: number;
         letterSpacing?: number;
         scaleXText?: number;
+        scaleYText?: number;
         psdBounds?: { left: number; top: number; right: number; bottom: number };
         psdTextTransform?: unknown;
         psdLeading?: number;
@@ -643,6 +644,7 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
               lineHeight: getPsdLineHeight(style, baseFontSize),
               letterSpacing: getPsdLetterSpacing(style, fontSize),
               scaleXText: getPsdTextScale(style) * transformScale.sx,
+              scaleYText: transformScale.sy,
               psdBounds: textBounds.psdBounds,
               psdTextTransform: textInfo.transform,
               psdLeading: getPsdLeading(style),

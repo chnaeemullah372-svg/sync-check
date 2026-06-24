@@ -115,7 +115,7 @@ export function CanvaTopBar({ userMode, entryId }: Props) {
         className="ml-1 rounded-full bg-emerald-600 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm"
         title="Deployment verification marker"
       >
-        LIVE BUILD 24JUN-004
+        LIVE BUILD 24JUN-005
       </div>
 
       <div className="ml-auto flex items-center gap-1">

@@ -59,6 +59,7 @@ type ImportedPsdLayer = {
   lineHeight?: number;
   letterSpacing?: number;
   scaleXText?: number;
+  scaleYText?: number;
   psdBounds?: { left: number; top: number; right: number; bottom: number };
   psdTextTransform?: unknown;
   psdLeading?: number;
@@ -463,6 +464,7 @@ function DesignerPage() {
               lineHeight: l.lineHeight ?? 1.2,
               letterSpacing: l.letterSpacing,
               scaleXText: l.scaleXText ?? 1,
+              scaleYText: l.scaleYText ?? 1,
               psdBounds: l.psdBounds,
               psdTextTransform: l.psdTextTransform,
               psdLeading: l.psdLeading,
