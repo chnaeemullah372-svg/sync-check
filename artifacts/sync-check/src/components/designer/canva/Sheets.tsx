@@ -1,8 +1,10 @@
 import { useRef, useState, useSyncExternalStore } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { CanvaSheet } from "./Sheet";
 import { useDock } from "./dockState";
 import { useDesigner, makeId } from "@/lib/designer/store";
-import type { TextLayer } from "@/lib/designer/types";
+import type { Layer, TextLayer } from "@/lib/designer/types";
+import { generateTemplateLayers } from "@/lib/api/ai.functions";
 
 import { FONT_LIBRARY, FONT_CATEGORIES, DEFAULT_COLORS } from "@/lib/designer/fonts";
 import {
@@ -19,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import {
   AlignLeft, AlignCenter, AlignRight, Bold, Italic, Underline as UnderlineIcon,
   Eye, EyeOff, Lock, Unlock, Trash2, ChevronUp, ChevronDown, Layers as LayersIcon, ChevronRight,
-  Upload,
+  Upload, AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -374,6 +376,13 @@ export function AIFieldSheet() {
 
 export function AIInstructionsSheet() {
   const { openSheet, setOpenSheet } = useDock();
+  const { background, canvasWidth, canvasHeight } = useDesigner();
+  const generateLayersFn = useServerFn(generateTemplateLayers);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [referenceImage, setReferenceImage] = useState<string | null>(null);
+  const [referenceName, setReferenceName] = useState<string>("");
+  const [referenceSize, setReferenceSize] = useState<{ width: number; height: number } | null>(null);
+  const [generating, setGenerating] = useState(false);
   const [text, setText] = useState<string>(() => {
     try { return localStorage.getItem("designer.aiInstructions") || ""; } catch { return ""; }
   });
@@ -381,15 +390,151 @@ export function AIInstructionsSheet() {
     setText(v);
     try { localStorage.setItem("designer.aiInstructions", v); } catch { /* ignore */ }
   };
+  const readReferenceFile = (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload a JPG/PNG/WebP reference image.");
+      return;
+    }
+    if (file.size > 7_500_000) {
+      toast.error("Reference image is too large. Use an image under 7.5MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const src = String(reader.result);
+      setReferenceImage(src);
+      setReferenceName(file.name);
+      const img = new Image();
+      img.onload = () => setReferenceSize({ width: img.width, height: img.height });
+      img.src = src;
+      toast.success("Reference image loaded");
+    };
+    reader.readAsDataURL(file);
+  };
+  const applyGeneratedLayers = async () => {
+    try {
+      setGenerating(true);
+      const result = await generateLayersFn({
+        data: {
+          canvasWidth,
+          canvasHeight,
+          instructions: text,
+          referenceImage: referenceImage ?? undefined,
+          backgroundImage: background.src ?? undefined,
+          referenceWidth: referenceSize?.width,
+          referenceHeight: referenceSize?.height,
+        },
+      });
+      const generated = (result?.layers ?? []).map((layer: any) => {
+        if (layer.type === "image") {
+          return {
+            id: makeId(),
+            name: layer.name || "Image",
+            type: "image",
+            x: layer.x ?? 0,
+            y: layer.y ?? 0,
+            width: layer.width ?? 120,
+            height: layer.height ?? 120,
+            rotation: 0,
+            opacity: 1,
+            visible: true,
+            locked: false,
+            src: null,
+            fit: layer.fit || "crop",
+            subtype: layer.subtype || "asset",
+            faceCrop: layer.faceCrop || "none",
+            fieldKey: layer.fieldKey || undefined,
+            aiInstruction: layer.aiInstruction ? `[AI_GENERATED] ${layer.aiInstruction}` : "[AI_GENERATED]",
+          } as Layer;
+        }
+        return {
+          id: makeId(),
+          name: layer.name || "Text",
+          type: "text",
+          x: layer.x ?? 0,
+          y: layer.y ?? 0,
+          width: layer.width ?? 160,
+          height: layer.height ?? 32,
+          rotation: layer.rotation ?? 0,
+          opacity: 1,
+          visible: true,
+          locked: false,
+          text: layer.text || layer.name || "Text",
+          fontSize: layer.fontSize || 18,
+          fontFamily: layer.fontFamily || "Inter",
+          fontStyle: "normal",
+          fill: layer.fill || "#111827",
+          align: layer.align === "center" || layer.align === "right" ? layer.align : "left",
+          rtl: !!layer.rtl,
+          fieldKey: layer.fieldKey || undefined,
+          aiInstruction: layer.aiInstruction ? `[AI_GENERATED] ${layer.aiInstruction}` : "[AI_GENERATED]",
+          autoFit: false,
+          lineHeight: layer.lineHeight ?? 1.15,
+          letterSpacing: layer.letterSpacing ?? 0,
+        } as Layer;
+      });
+      if (generated.length === 0) throw new Error("AI did not return any layers.");
+      useDesigner.setState((state) => ({
+        layers: [
+          ...state.layers.filter((layer) => !String((layer as any).aiInstruction || "").startsWith("[AI_GENERATED]")),
+          ...generated,
+        ],
+        selectedId: generated[generated.length - 1]?.id ?? state.selectedId,
+        selectedIds: generated[generated.length - 1] ? [generated[generated.length - 1].id] : [],
+      }));
+      if (result?.templateAiInstructions) save(result.templateAiInstructions);
+      toast.success(`AI generated ${generated.length} editable layers`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "AI layer generation failed");
+    } finally {
+      setGenerating(false);
+    }
+  };
   return (
-    <CanvaSheet open={openSheet === "aiInstructions"} onClose={() => setOpenSheet(null)} title="AI Template Instructions" height="65vh">
+    <CanvaSheet open={openSheet === "aiInstructions"} onClose={() => setOpenSheet(null)} title="AI Template Builder" height="78vh">
       <div className="p-4 space-y-3">
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          className="hidden"
+          onChange={(event) => {
+            readReferenceFile(event.target.files?.[0]);
+            event.currentTarget.value = "";
+          }}
+        />
         <div className="text-xs text-muted-foreground">
-          Tell the AI exactly how to fill this template on the user side. Per-layer instructions override these rules.
+          Upload a blank/background first, then add a demo/reference image and command. A configured vision AI key is required; otherwise generation will stop with a setup error.
+        </div>
+        <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+          <div className="text-[11px] font-bold uppercase text-muted-foreground">Reference / demo image</div>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={() => fileRef.current?.click()} className="flex-1">
+              Upload demo file
+            </Button>
+            {referenceImage && (
+              <Button type="button" variant="ghost" onClick={() => { setReferenceImage(null); setReferenceName(""); setReferenceSize(null); }}>
+                Clear
+              </Button>
+            )}
+          </div>
+          {referenceName ? (
+            <div className="text-xs text-emerald-700 truncate">
+              Loaded: {referenceName}
+              {referenceSize ? ` (${referenceSize.width}x${referenceSize.height})` : ""}
+            </div>
+          ) : (
+            <div className="text-xs text-muted-foreground">Optional but recommended: upload the filled/demo CNIC image.</div>
+          )}
         </div>
         <Textarea
           value={text} onChange={(e) => save(e.target.value)} rows={14} dir="auto"
           placeholder={`Examples:
+- Use the uploaded demo image as reference and create editable CNIC layers.
+- Keep all Urdu fields in Jameel Noori Nastaleeq and RTL.
+- Name layers: Name Urdu, CNIC Number, Father/Husband, DOB, DOI, Address, Photo, Thumb.
+- Set field keys so user-side one-click fill works.
 - Name: write in Urdu in "Name", English transliteration in "Name (EN)".
 - Photo: passport-size, face centered, white background.
 - Address1 = current address, Address2 = permanent address.
@@ -398,8 +543,20 @@ export function AIInstructionsSheet() {
         />
         <div className="flex gap-2 justify-end">
           <Button variant="ghost" onClick={() => save("")}>Clear</Button>
+          <Button
+            variant="outline"
+            disabled={generating || !background.src}
+            onClick={() => void applyGeneratedLayers()}
+          >
+            {generating ? "Generating…" : "Generate Layers with AI"}
+          </Button>
           <Button onClick={() => { setOpenSheet(null); toast.success("Instructions saved"); }}>Done</Button>
         </div>
+        {!background.src && (
+          <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2">
+            Upload a blank/template background first, then run AI Generate Layers.
+          </div>
+        )}
       </div>
     </CanvaSheet>
   );
@@ -434,35 +591,56 @@ export function LayersSheet() {
                 <span className="text-[10px] text-muted-foreground">{slotLayers.length}</span>
               </button>
               <div className="divide-y">
-                {slotLayers.map((l) => (
-                  <div key={l.id}
-                    className={cn("flex items-center gap-2 px-3 py-2 text-sm cursor-pointer",
-                      selectedId === l.id ? "bg-primary/10" : "hover:bg-accent")}
-                    onClick={() => selectLayer(l.id)}>
-                    <button onClick={(e) => { e.stopPropagation(); updateLayer(l.id, { visible: !l.visible } as any); }}
-                      className="h-7 w-7 grid place-items-center hover:bg-accent rounded">
-                      {l.visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); updateLayer(l.id, { locked: !l.locked } as any); }}
-                      className="h-7 w-7 grid place-items-center hover:bg-accent rounded">
-                      {l.locked ? <Lock className="h-4 w-4 text-amber-600" /> : <Unlock className="h-4 w-4 text-muted-foreground" />}
-                    </button>
-                    <span className="truncate flex-1">{l.name}</span>
-                    <span className="text-[10px] text-muted-foreground uppercase shrink-0">{l.type}</span>
-                    <button onClick={(e) => { e.stopPropagation(); moveLayer(l.id, "up"); }}
-                      className="h-7 w-7 grid place-items-center hover:bg-accent rounded">
-                      <ChevronUp className="h-4 w-4" />
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); moveLayer(l.id, "down"); }}
-                      className="h-7 w-7 grid place-items-center hover:bg-accent rounded">
-                      <ChevronDown className="h-4 w-4" />
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); deleteLayer(l.id); }}
-                      className="h-7 w-7 grid place-items-center hover:bg-destructive/10 text-destructive rounded">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
+                {slotLayers.map((l) => {
+                  const textLayer = l.type === "text" ? l : null;
+                  const missingFont = !!(textLayer?.missingFont ?? textLayer?.fontMissing);
+                  const originalFont = textLayer?.originalFontFamily || textLayer?.fontFamily;
+                  return (
+                    <div key={l.id}
+                      className={cn("flex items-center gap-2 px-3 py-2 text-sm cursor-pointer",
+                        selectedId === l.id ? "bg-primary/10" : "hover:bg-accent")}
+                      onClick={() => selectLayer(l.id)}>
+                      <button onClick={(e) => { e.stopPropagation(); updateLayer(l.id, { visible: !l.visible } as any); }}
+                        className="h-7 w-7 grid place-items-center hover:bg-accent rounded">
+                        {l.visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); updateLayer(l.id, { locked: !l.locked } as any); }}
+                        className="h-7 w-7 grid place-items-center hover:bg-accent rounded">
+                        {l.locked ? <Lock className="h-4 w-4 text-amber-600" /> : <Unlock className="h-4 w-4 text-muted-foreground" />}
+                      </button>
+                      {textLayer && missingFont ? (
+                        <span
+                          title={`Missing font: ${originalFont || "unknown"}. Fallback: ${textLayer.fontFamily}`}
+                          className="text-amber-600 shrink-0"
+                        >
+                          <AlertTriangle className="h-4 w-4" />
+                        </span>
+                      ) : null}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate">{l.name}</span>
+                        {textLayer && (
+                          <span className={cn("block truncate text-[10px] leading-tight text-muted-foreground", missingFont && "text-amber-600")}>
+                            Font: {originalFont}
+                            {missingFont ? ` -> ${textLayer.fontFamily}` : ""}
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground uppercase shrink-0">{l.type}</span>
+                      <button onClick={(e) => { e.stopPropagation(); moveLayer(l.id, "up"); }}
+                        className="h-7 w-7 grid place-items-center hover:bg-accent rounded">
+                        <ChevronUp className="h-4 w-4" />
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); moveLayer(l.id, "down"); }}
+                        className="h-7 w-7 grid place-items-center hover:bg-accent rounded">
+                        <ChevronDown className="h-4 w-4" />
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); deleteLayer(l.id); }}
+                        className="h-7 w-7 grid place-items-center hover:bg-destructive/10 text-destructive rounded">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );

@@ -6,7 +6,7 @@ import { consumeStagedPsd } from "@/lib/designer/psd-staging";
 import { consumeStagedBlank } from "@/lib/designer/blank-staging";
 import { A4_PORTRAIT, useDesigner, makeId } from "@/lib/designer/store";
 import type { Layer } from "@/lib/designer/types";
-import { useDesignerAutosave } from "@/hooks/use-designer-autosave";
+import { getDesignerAutosaveSnapshot, useDesignerAutosave } from "@/hooks/use-designer-autosave";
 import { useServerFn } from "@tanstack/react-start";
 import { loadTemplate } from "@/lib/api/templates.functions";
 import { toast } from "sonner";
@@ -43,6 +43,7 @@ type ImportedPsdLayer = {
   width?: number;
   height?: number;
   rotation?: number;
+  opacity?: number;
   src?: string;
   text?: string;
   fontSize?: number;
@@ -58,6 +59,7 @@ type ImportedPsdLayer = {
   lineHeight?: number;
   letterSpacing?: number;
   scaleXText?: number;
+  scaleYText?: number;
   psdBounds?: { left: number; top: number; right: number; bottom: number };
   psdTextTransform?: unknown;
   psdLeading?: number;
@@ -347,6 +349,19 @@ function DesignerPage() {
     if (modeAppliedRef.current) return;
     modeAppliedRef.current = true;
     const st = useDesigner.getState();
+    const restoreAutosave = async () => {
+      const saved = await getDesignerAutosaveSnapshot();
+      if (!saved) return false;
+      st.loadState({
+        background: saved.background,
+        canvasWidth: saved.canvasWidth,
+        canvasHeight: saved.canvasHeight,
+        layers: saved.layers,
+        memberNames: saved.memberNames || {},
+      });
+      st.setSize("custom", saved.canvasWidth, saved.canvasHeight);
+      return true;
+    };
     if (mode === "card") {
       st.loadState({
         background: { src: null, width: CARD.w, height: CARD.h },
@@ -391,14 +406,19 @@ function DesignerPage() {
           `Background loaded (${b.fitMode === "auto" ? "fit A4" : `${b.width}×${b.height}`})`,
         );
       } else {
-        st.loadState({
-          background: { src: null, width: A4_PORTRAIT.w, height: A4_PORTRAIT.h },
-          canvasWidth: A4_PORTRAIT.w,
-          canvasHeight: A4_PORTRAIT.h,
-          layers: [],
-          memberNames: {},
-        });
-        st.setSize("a4p");
+        void (async () => {
+          const restored = await restoreAutosave();
+          if (!restored) {
+            st.loadState({
+              background: { src: null, width: A4_PORTRAIT.w, height: A4_PORTRAIT.h },
+              canvasWidth: A4_PORTRAIT.w,
+              canvasHeight: A4_PORTRAIT.h,
+              layers: [],
+              memberNames: {},
+            });
+            st.setSize("a4p");
+          }
+        })();
       }
     } else if (mode === "member") {
       let count = 1;
@@ -430,7 +450,8 @@ function DesignerPage() {
       try {
         const p = await consumeStagedPsd();
         if (!p) {
-          toast.error("PSD data not found");
+          const restored = await restoreAutosave();
+          if (!restored) toast.error("PSD data not found");
           return;
         }
         const importedLayers = (p.layers || []) as ImportedPsdLayer[];
@@ -445,7 +466,7 @@ function DesignerPage() {
               width: l.width ?? 120,
               height: l.height ?? 32,
               rotation: l.rotation || 0,
-              opacity: 1,
+              opacity: l.opacity ?? 1,
               visible: true,
               locked: false,
               text: l.text || "",
@@ -462,6 +483,7 @@ function DesignerPage() {
               lineHeight: l.lineHeight ?? 1.2,
               letterSpacing: l.letterSpacing,
               scaleXText: l.scaleXText ?? 1,
+              scaleYText: l.scaleYText ?? 1,
               psdBounds: l.psdBounds,
               psdTextTransform: l.psdTextTransform,
               psdLeading: l.psdLeading,
@@ -477,7 +499,7 @@ function DesignerPage() {
             width: l.width ?? 120,
             height: l.height ?? 120,
             rotation: 0,
-            opacity: 1,
+            opacity: l.opacity ?? 1,
             visible: true,
             locked: false,
             src: l.src ?? null,

@@ -79,6 +79,8 @@ export interface TextLayer extends BaseLayer {
   letterSpacing?: number;
   /** Extra horizontal metric scale from the PSD font/run. */
   scaleXText?: number;
+  /** Extra vertical transform scale from the PSD text matrix. */
+  scaleYText?: number;
   /** Exact Photoshop text/layer bounds used during PSD import. */
   psdBounds?: { left: number; top: number; right: number; bottom: number };
   /** Raw PSD text transform matrix/metadata, retained for reload/debug fidelity. */

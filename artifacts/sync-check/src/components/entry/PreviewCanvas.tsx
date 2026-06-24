@@ -291,8 +291,9 @@ export function PreviewCanvas({
                 node.scaleX(1);
                 node.scaleY(1);
                 const textScaleX = layer.type === "text" ? ((layer as TextLayer).scaleXText ?? 1) : 1;
+                const textScaleY = layer.type === "text" ? ((layer as TextLayer).scaleYText ?? 1) : 1;
                 const newW = Math.max(8, ((layer as any).width * sx) / textScaleX);
-                const newH = Math.max(8, (layer as any).height * sy);
+                const newH = Math.max(8, ((layer as any).height * sy) / textScaleY);
                 const upd: LayerOverlay = {
                   x: node.x(),
                   y: node.y(),
@@ -332,6 +333,7 @@ export function PreviewCanvas({
                   lineHeight={t.lineHeight ?? 1.2}
                   letterSpacing={t.letterSpacing ?? 0}
                   scaleX={t.scaleXText ?? 1}
+                  scaleY={t.scaleYText ?? 1}
                   fill={t.fill}
                   align={t.align}
                   verticalAlign="top"

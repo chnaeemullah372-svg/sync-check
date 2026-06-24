@@ -19,8 +19,19 @@ const PROVIDER_KEY_NAMES: Record<string, string> = {
 
 async function loadProviderKey(
   provider: "openai" | "gemini" | "claude" | null,
+  supabase?: any,
 ): Promise<string | null> {
   if (!provider) return null;
+  if (supabase) {
+    try {
+      const { data } = await supabase
+        .from("ai_provider_keys")
+        .select("api_key")
+        .eq("provider", provider)
+        .maybeSingle();
+      if (data?.api_key) return data.api_key as string;
+    } catch { /* ignore */ }
+  }
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data } = await supabaseAdmin
@@ -33,19 +44,27 @@ async function loadProviderKey(
   return process.env[PROVIDER_KEY_NAMES[provider]] ?? null;
 }
 
+async function assertAiAdmin(context: { supabase: any; userId: string }) {
+  const { data, error } = await context.supabase.rpc("has_role", {
+    _user_id: context.userId,
+    _role: "admin",
+  });
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Forbidden: admin only");
+}
+
 /** Public: returns AI mode + user's allowed modes + whether advanced provider key is configured. */
 export const getAiContext = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const [{ data: settings }, { data: access }] = await Promise.all([
-      supabaseAdmin.from("ai_settings").select("mode, provider").eq("id", 1).maybeSingle(),
-      supabaseAdmin.from("user_ai_access").select("access").eq("user_id", context.userId).maybeSingle(),
+      context.supabase.from("ai_settings").select("mode, provider").eq("id", 1).maybeSingle(),
+      context.supabase.from("user_ai_access").select("access").eq("user_id", context.userId).maybeSingle(),
     ]);
     const mode = (settings?.mode ?? "standard") as "disabled" | "standard" | "advanced";
     const provider = (settings?.provider ?? null) as "openai" | "gemini" | "claude" | null;
     const userAccess = (access?.access ?? "standard") as "disabled" | "standard" | "advanced" | "both";
-    const key = await loadProviderKey(provider);
+    const key = await loadProviderKey(provider, context.supabase);
     const advancedConfigured = !!provider && !!key;
     return { mode, provider, userAccess, advancedConfigured };
   });
@@ -54,10 +73,8 @@ export const getAiContext = createServerFn({ method: "GET" })
 export const listProviderKeys = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: isAdmin } = await supabaseAdmin.rpc("has_role", { _user_id: context.userId, _role: "admin" });
-    if (!isAdmin) throw new Error("Forbidden: admin only");
-    const { data } = await supabaseAdmin
+    await assertAiAdmin(context);
+    const { data } = await context.supabase
       .from("ai_provider_keys")
       .select("provider, updated_at");
     const map: Record<string, { configured: boolean; updatedAt?: string }> = {
@@ -87,12 +104,10 @@ export const setProviderKey = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: isAdmin } = await supabaseAdmin.rpc("has_role", { _user_id: context.userId, _role: "admin" });
-    if (!isAdmin) throw new Error("Forbidden: admin only");
+    await assertAiAdmin(context);
     const trimmed = data.apiKey.trim();
     if (trimmed === "") {
-      const { error } = await supabaseAdmin
+      const { error } = await context.supabase
         .from("ai_provider_keys")
         .delete()
         .eq("provider", data.provider);
@@ -100,7 +115,7 @@ export const setProviderKey = createServerFn({ method: "POST" })
       return { ok: true, cleared: true };
     }
     if (trimmed.length < 10) throw new Error("API key looks too short.");
-    const { error } = await supabaseAdmin
+    const { error } = await context.supabase
       .from("ai_provider_keys")
       .upsert({
         provider: data.provider,
@@ -122,14 +137,12 @@ export const setAiSettings = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: isAdmin } = await supabaseAdmin.rpc("has_role", { _user_id: context.userId, _role: "admin" });
-    if (!isAdmin) throw new Error("Forbidden: admin only");
-    const { error } = await supabaseAdmin
+    await assertAiAdmin(context);
+    const { error } = await context.supabase
       .from("ai_settings")
       .upsert({ id: 1, mode: data.mode, provider: data.provider ?? null, updated_at: new Date().toISOString(), updated_by: context.userId });
     if (error) throw new Error(error.message);
-    const key = data.provider ? await loadProviderKey(data.provider) : null;
+    const key = data.provider ? await loadProviderKey(data.provider, context.supabase) : null;
     const providerConfigured = !!key;
     return { ok: true, providerConfigured };
   });
@@ -139,10 +152,8 @@ export const setUserAiAccess = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ userId: z.string().uuid(), access: z.enum(["disabled", "standard", "advanced", "both"]) }))
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: isAdmin } = await supabaseAdmin.rpc("has_role", { _user_id: context.userId, _role: "admin" });
-    if (!isAdmin) throw new Error("Forbidden: admin only");
-    const { error } = await supabaseAdmin
+    await assertAiAdmin(context);
+    const { error } = await context.supabase
       .from("user_ai_access")
       .upsert({ user_id: data.userId, access: data.access, updated_at: new Date().toISOString() });
     if (error) throw new Error(error.message);
@@ -153,10 +164,8 @@ export const setUserAiAccess = createServerFn({ method: "POST" })
 export const listUserAiAccess = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: isAdmin } = await supabaseAdmin.rpc("has_role", { _user_id: context.userId, _role: "admin" });
-    if (!isAdmin) throw new Error("Forbidden: admin only");
-    const { data } = await supabaseAdmin.from("user_ai_access").select("user_id, access");
+    await assertAiAdmin(context);
+    const { data } = await context.supabase.from("user_ai_access").select("user_id, access");
     const map: Record<string, string> = {};
     for (const r of data ?? []) map[r.user_id] = r.access;
     return map;
@@ -166,15 +175,333 @@ export const listUserAiAccess = createServerFn({ method: "GET" })
 export const listAiUsage = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: isAdmin } = await supabaseAdmin.rpc("has_role", { _user_id: context.userId, _role: "admin" });
-    if (!isAdmin) throw new Error("Forbidden: admin only");
-    const { data } = await supabaseAdmin
+    await assertAiAdmin(context);
+    const { data } = await context.supabase
       .from("ai_usage_logs")
       .select("id, user_id, mode, provider, input_type, estimated_tokens, estimated_cost, created_at")
       .order("created_at", { ascending: false })
       .limit(200);
     return data ?? [];
+  });
+
+const GeneratedLayer = z.object({
+  name: z.string(),
+  type: z.enum(["text", "image"]),
+  x: z.number(),
+  y: z.number(),
+  width: z.number(),
+  height: z.number(),
+  text: z.string().optional(),
+  fontSize: z.number().optional(),
+  fontFamily: z.string().optional(),
+  fill: z.string().optional(),
+  align: z.preprocess(
+    (value) => (value === "left" || value === "center" || value === "right" ? value : undefined),
+    z.enum(["left", "center", "right"]).optional(),
+  ),
+  rtl: z.boolean().optional(),
+  fieldKey: z.string().optional(),
+  aiInstruction: z.string().optional(),
+  subtype: z.string().optional(),
+  fit: z.string().optional(),
+  faceCrop: z.string().optional(),
+  rotation: z.number().optional(),
+  lineHeight: z.number().optional(),
+  letterSpacing: z.number().optional(),
+});
+
+const GeneratedTemplate = z.object({
+  layers: z.array(GeneratedLayer).min(1).max(120),
+  templateAiInstructions: z.string().max(4000).optional(),
+});
+
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function rect(width: number, height: number, x: number, y: number, w: number, h: number) {
+  return {
+    x: Math.round(clamp(x * width, 0, width - 4)),
+    y: Math.round(clamp(y * height, 0, height - 4)),
+    width: Math.round(clamp(w * width, 8, width)),
+    height: Math.round(clamp(h * height, 8, height)),
+  };
+}
+
+function cnicLayout(width: number, height: number) {
+  const text = (name: string, fieldKey: string, r: ReturnType<typeof rect>, sample: string, opts: Partial<z.infer<typeof GeneratedLayer>> = {}) => ({
+    name,
+    type: "text" as const,
+    ...r,
+    text: sample,
+    fontSize: opts.fontSize ?? Math.max(12, Math.round(height * 0.018)),
+    fontFamily: opts.fontFamily ?? (opts.rtl ? "Jameel Noori Nastaleeq" : "Roboto Condensed"),
+    fill: "#111111",
+    align: opts.align ?? (opts.rtl ? "right" as const : "left" as const),
+    rtl: !!opts.rtl,
+    fieldKey,
+    aiInstruction: opts.aiInstruction ?? `Fill ${name} from user data. Keep the same language and format.`,
+  });
+  const image = (name: string, fieldKey: string, r: ReturnType<typeof rect>, subtype = "photo") => ({
+    name,
+    type: "image" as const,
+    ...r,
+    src: null,
+    fit: "crop",
+    subtype,
+    faceCrop: subtype === "photo" ? "passport" : "none",
+    fieldKey,
+    aiInstruction: subtype === "photo" ? "Passport-size face centered." : "Use matching uploaded image.",
+  });
+
+  return [
+    image("Photo", "photo", rect(width, height, 0.095, 0.14, 0.18, 0.17), "photo"),
+    image("Thumb", "thumb", rect(width, height, 0.11, 0.34, 0.15, 0.08), "thumb"),
+    text("Name Urdu", "name", rect(width, height, 0.53, 0.14, 0.24, 0.04), "نام", { rtl: true, fontSize: Math.round(height * 0.022) }),
+    text("Father/Husband Urdu", "father_name", rect(width, height, 0.49, 0.25, 0.28, 0.04), "والد/شوہر", { rtl: true, fontSize: Math.round(height * 0.02) }),
+    text("CNIC Number", "cnic", rect(width, height, 0.35, 0.20, 0.27, 0.04), "35201-1234567-8", { fontSize: Math.round(height * 0.019), fontFamily: "Roboto Condensed" }),
+    text("Gender", "custom_1", rect(width, height, 0.30, 0.31, 0.08, 0.035), "M", { fontSize: Math.round(height * 0.016), fontFamily: "Roboto Condensed" }),
+    text("Date of Birth", "dob", rect(width, height, 0.52, 0.36, 0.15, 0.035), "01/01/2000", { fontSize: Math.round(height * 0.016), fontFamily: "Roboto Condensed" }),
+    text("Date of Issue", "doi", rect(width, height, 0.30, 0.42, 0.15, 0.035), "01/01/2020", { fontSize: Math.round(height * 0.016), fontFamily: "Roboto Condensed" }),
+    text("Date of Expiry", "custom_2", rect(width, height, 0.53, 0.42, 0.15, 0.035), "01/01/2030", { fontSize: Math.round(height * 0.016), fontFamily: "Roboto Condensed" }),
+    text("Back CNIC Number", "cnic", rect(width, height, 0.64, 0.56, 0.28, 0.035), "35201-1234567-8", { fontSize: Math.round(height * 0.016), fontFamily: "Roboto Condensed" }),
+    text("Family Number", "custom_3", rect(width, height, 0.31, 0.56, 0.16, 0.035), "Q340ZP", { fontSize: Math.round(height * 0.016), fontFamily: "Roboto Condensed" }),
+    text("Current Address", "address", rect(width, height, 0.34, 0.62, 0.48, 0.06), "موجودہ پتہ", { rtl: true, fontSize: Math.round(height * 0.018) }),
+    text("Permanent Address", "address", rect(width, height, 0.34, 0.73, 0.48, 0.06), "مستقل پتہ", { rtl: true, fontSize: Math.round(height * 0.018) }),
+    text("Footer Urdu", "relation", rect(width, height, 0.25, 0.84, 0.55, 0.05), "گمشدہ کارڈ ملنے پر قریبی لیٹر بکس میں ڈال دیں", { rtl: true, fontSize: Math.round(height * 0.024) }),
+  ];
+}
+
+function normalizeImageUrl(image: string) {
+  return image.startsWith("data:") ? image : `data:image/jpeg;base64,${image}`;
+}
+
+function clampGeneratedLayer(layer: z.infer<typeof GeneratedLayer>, canvasWidth: number, canvasHeight: number) {
+  const x = clamp(Math.round(layer.x), 0, Math.max(0, canvasWidth - 4));
+  const y = clamp(Math.round(layer.y), 0, Math.max(0, canvasHeight - 4));
+  const width = clamp(Math.round(layer.width), 8, Math.max(8, canvasWidth - x));
+  const height = clamp(Math.round(layer.height), 8, Math.max(8, canvasHeight - y));
+  const align = layer.align || (layer.rtl ? "right" : "left");
+  return {
+    ...layer,
+    x,
+    y,
+    width,
+    height,
+    fontSize: layer.type === "text" ? clamp(Math.round(layer.fontSize ?? 18), 6, 220) : undefined,
+    fontFamily: layer.type === "text" ? (layer.fontFamily || (layer.rtl ? "Jameel Noori Nastaleeq" : "Roboto Condensed")) : undefined,
+    fill: layer.type === "text" ? (layer.fill || "#111111") : undefined,
+    align: layer.type === "text" ? align : undefined,
+    rotation: Number.isFinite(layer.rotation) ? layer.rotation : 0,
+    lineHeight: layer.type === "text" ? clamp(Number(layer.lineHeight ?? 1.15), 0.7, 2.2) : undefined,
+    letterSpacing: layer.type === "text" ? clamp(Number(layer.letterSpacing ?? 0), -20, 80) : undefined,
+  };
+}
+
+async function callOpenAiLayerVision(key: string, prompt: string, imageUrl: string, backgroundUrl?: string) {
+  const content: any[] = [{ type: "text", text: prompt }];
+  if (backgroundUrl) {
+    content.push({ type: "text", text: "IMAGE A: blank/background canvas. Use this as the coordinate base." });
+    content.push({ type: "image_url", image_url: { url: backgroundUrl, detail: "high" } });
+  }
+  content.push({ type: "text", text: "IMAGE B: completed/demo reference. Copy text/image layer positions from this image onto IMAGE A." });
+  content.push({ type: "image_url", image_url: { url: imageUrl, detail: "high" } });
+  const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+    body: JSON.stringify({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: "You are a precise document template reconstruction engine. Return only strict JSON." },
+        {
+          role: "user",
+          content,
+        },
+      ],
+      response_format: { type: "json_object" },
+    }),
+  });
+  if (!resp.ok) throw new Error(`OpenAI layer generation failed (${resp.status})`);
+  const json: any = await resp.json();
+  return json?.choices?.[0]?.message?.content ?? "{}";
+}
+
+async function callGeminiLayerVision(key: string, prompt: string, imageUrl: string, backgroundUrl?: string) {
+  const [, mime, b64] = imageUrl.match(/^data:([^;]+);base64,(.+)$/) ?? [];
+  if (!mime || !b64) throw new Error("Reference image must be a base64 data URL.");
+  const parts: any[] = [{ text: prompt }];
+  if (backgroundUrl) {
+    const [, bgMime, bgB64] = backgroundUrl.match(/^data:([^;]+);base64,(.+)$/) ?? [];
+    if (bgMime && bgB64) {
+      parts.push({ text: "IMAGE A: blank/background canvas. Use this as the coordinate base." });
+      parts.push({ inline_data: { mime_type: bgMime, data: bgB64 } });
+    }
+  }
+  parts.push({ text: "IMAGE B: completed/demo reference. Copy text/image layer positions from this image onto IMAGE A." });
+  parts.push({ inline_data: { mime_type: mime, data: b64 } });
+  const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts }],
+      generationConfig: { response_mime_type: "application/json" },
+    }),
+  });
+  if (!resp.ok) throw new Error(`Gemini layer generation failed (${resp.status})`);
+  const json: any = await resp.json();
+  return json?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
+}
+
+async function callLovableLayerVision(key: string, prompt: string, imageUrl: string, backgroundUrl?: string) {
+  const content: any[] = [{ type: "text", text: prompt }];
+  if (backgroundUrl) {
+    content.push({ type: "text", text: "IMAGE A: blank/background canvas. Use this as the coordinate base." });
+    content.push({ type: "image_url", image_url: { url: backgroundUrl } });
+  }
+  content.push({ type: "text", text: "IMAGE B: completed/demo reference. Copy text/image layer positions from this image onto IMAGE A." });
+  content.push({ type: "image_url", image_url: { url: imageUrl } });
+  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Lovable-API-Key": key },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        { role: "system", content: "You are a precise document template layout engine. Return only strict JSON." },
+        {
+          role: "user",
+          content,
+        },
+      ],
+      response_format: { type: "json_object" },
+    }),
+  });
+  if (resp.status === 429) throw new Error("AI rate limit hit. Try again shortly.");
+  if (resp.status === 402) throw new Error("AI credits exhausted.");
+  if (!resp.ok) throw new Error(`Lovable AI layer generation failed (${resp.status})`);
+  const json: any = await resp.json();
+  return json?.choices?.[0]?.message?.content ?? "{}";
+}
+
+export const generateTemplateLayers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      canvasWidth: z.number().int().positive().max(20000),
+      canvasHeight: z.number().int().positive().max(20000),
+      instructions: z.string().max(8000).optional(),
+      referenceImage: z.string().max(8_000_000).optional(),
+      backgroundImage: z.string().max(8_000_000).optional(),
+      referenceWidth: z.number().int().positive().max(20000).optional(),
+      referenceHeight: z.number().int().positive().max(20000).optional(),
+    }),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: isAdmin, error } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "admin",
+    });
+    if (error) throw new Error(error.message);
+    if (!isAdmin) throw new Error("Forbidden: admin only");
+
+    if (!data.referenceImage) {
+      throw new Error("Upload a demo/reference image first. AI needs the demo file to place layers.");
+    }
+
+    const prompt = `
+Create an editable document template layer layout from the uploaded images.
+
+Canvas size:
+- width: ${data.canvasWidth}px
+- height: ${data.canvasHeight}px
+
+Images:
+- IMAGE A is the blank/background canvas already placed in the editor.
+- IMAGE B is the completed/demo reference image.
+- Your job is to reconstruct editable placeholders/text layers on IMAGE A so that, after user data is filled, it matches IMAGE B.
+- IMAGE B source size: ${data.referenceWidth && data.referenceHeight ? `${data.referenceWidth}x${data.referenceHeight}px` : "unknown"}.
+- If IMAGE B size differs from canvas, scale coordinates to the ${data.canvasWidth}x${data.canvasHeight}px canvas before returning JSON.
+
+Admin command:
+${data.instructions?.trim() || "Create editable CNIC/NADRA text and image layers matching the reference."}
+
+Return STRICT JSON only:
+{
+  "layers": [
+    {
+      "type": "text" | "image",
+      "name": "human readable layer name",
+      "fieldKey": "name|father_name|cnic|dob|doi|address|photo|thumb|signature|custom_1|custom_2|custom_3",
+      "x": number, "y": number, "width": number, "height": number,
+      "text": "sample text for text layers",
+      "fontSize": number,
+      "fontFamily": "Jameel Noori Nastaleeq|Roboto Condensed|Arial|Noto Naskh Arabic",
+      "rtl": boolean,
+      "align": "left"|"center"|"right",
+      "fill": "#111111",
+      "rotation": number,
+      "lineHeight": number,
+      "letterSpacing": number,
+      "aiInstruction": "how to fill this layer"
+    }
+  ],
+  "templateAiInstructions": "overall user-side fill instructions"
+}
+
+Rules:
+- Use the exact ${data.canvasWidth}x${data.canvasHeight} pixel coordinate system. Origin is top-left.
+- Match IMAGE B positions as closely as possible in IMAGE A canvas pixels.
+- If IMAGE B is a photo/screenshot of the same document, first mentally scale it to IMAGE A size; do not output coordinates from the phone screenshot frame.
+- Use tight bounding boxes around the actual text baseline/line area. Do not make giant text boxes.
+- Preserve font size. Do not shrink text just to fit. For labels/value text, choose the visual font size from IMAGE B.
+- Preserve line spacing and letter spacing where visible. Use lineHeight around 1.0-1.2 for compact ID-card text.
+- For any unknown or invalid alignment, output "left", "center", or "right" only. Never output "" for align.
+- Create separate editable layers for visible variable text fields.
+- Create image placeholder layers for photo, thumb/fingerprint, signature/QR if needed.
+- Urdu text must use rtl=true, right alignment, and Jameel Noori Nastaleeq unless the command says otherwise.
+- Numeric fields like CNIC and dates must use Latin digits and Roboto Condensed/Arial.
+- Do not add decorative/background layers that already exist in IMAGE A.
+- Do not return prose, markdown, comments, or explanations.
+`.trim();
+
+    const imageUrl = normalizeImageUrl(data.referenceImage);
+    const backgroundUrl = data.backgroundImage ? normalizeImageUrl(data.backgroundImage) : undefined;
+    let raw = "{}";
+    const { data: settings } = await context.supabase
+      .from("ai_settings")
+      .select("provider")
+      .eq("id", 1)
+      .maybeSingle();
+    const provider = (settings?.provider ?? null) as "openai" | "gemini" | "claude" | null;
+    const openAiKey = await loadProviderKey("openai", context.supabase);
+    const geminiKey = await loadProviderKey("gemini", context.supabase);
+    const lovableKey = process.env.LOVABLE_API_KEY;
+    if (provider === "openai" && openAiKey) {
+      raw = await callOpenAiLayerVision(openAiKey, prompt, imageUrl, backgroundUrl);
+    } else if (provider === "gemini" && geminiKey) {
+      raw = await callGeminiLayerVision(geminiKey, prompt, imageUrl, backgroundUrl);
+    } else if (openAiKey) {
+      raw = await callOpenAiLayerVision(openAiKey, prompt, imageUrl, backgroundUrl);
+    } else if (geminiKey) {
+      raw = await callGeminiLayerVision(geminiKey, prompt, imageUrl, backgroundUrl);
+    } else if (lovableKey) {
+      raw = await callLovableLayerVision(lovableKey, prompt, imageUrl, backgroundUrl);
+    } else {
+      throw new Error("AI vision is not configured. Add an OpenAI/Gemini API key in Admin AI Settings.");
+    }
+
+    let parsed: unknown = {};
+    try {
+      parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    } catch {
+      throw new Error("AI returned invalid JSON. Try again with clearer instructions.");
+    }
+    const generated = GeneratedTemplate.parse(parsed);
+    const layers = generated.layers.map((layer) => clampGeneratedLayer(layer, data.canvasWidth, data.canvasHeight));
+    return {
+      layers,
+      templateAiInstructions: generated.templateAiInstructions || data.instructions?.trim() || "",
+      source: "vision",
+    };
   });
 
 /**
@@ -200,10 +527,9 @@ export const extractFromImage = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     // ---------- access control ----------
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const [{ data: settings }, { data: access }] = await Promise.all([
-      supabaseAdmin.from("ai_settings").select("mode, provider").eq("id", 1).maybeSingle(),
-      supabaseAdmin.from("user_ai_access").select("access").eq("user_id", context.userId).maybeSingle(),
+      context.supabase.from("ai_settings").select("mode, provider").eq("id", 1).maybeSingle(),
+      context.supabase.from("user_ai_access").select("access").eq("user_id", context.userId).maybeSingle(),
     ]);
     const globalMode = (settings?.mode ?? "standard") as "disabled" | "standard" | "advanced";
     const userAccess = (access?.access ?? "standard") as "disabled" | "standard" | "advanced" | "both";
@@ -314,7 +640,7 @@ export const extractFromImage = createServerFn({ method: "POST" })
     };
 
     const callOpenAI = async () => {
-      const key = await loadProviderKey("openai");
+      const key = await loadProviderKey("openai", context.supabase);
       if (!key) throw new Error("Advanced extraction is not configured.");
       const userParts: any[] = [{ type: "text", text: userPrompt + (data.text ? `\n\nSOURCE:\n${data.text}` : "") }];
       if (data.image) {
@@ -336,7 +662,7 @@ export const extractFromImage = createServerFn({ method: "POST" })
     };
 
     const callGemini = async () => {
-      const key = await loadProviderKey("gemini");
+      const key = await loadProviderKey("gemini", context.supabase);
       if (!key) throw new Error("Advanced extraction is not configured.");
       const parts: any[] = [{ text: `${sys}\n\n${userPrompt}${data.text ? `\n\nSOURCE:\n${data.text}` : ""}` }];
       if (data.image) {
@@ -355,7 +681,7 @@ export const extractFromImage = createServerFn({ method: "POST" })
     };
 
     const callClaude = async () => {
-      const key = await loadProviderKey("claude");
+      const key = await loadProviderKey("claude", context.supabase);
       if (!key) throw new Error("Advanced extraction is not configured.");
       const content: any[] = [{ type: "text", text: userPrompt + (data.text ? `\n\nSOURCE:\n${data.text}` : "") }];
       if (data.image) {
@@ -422,7 +748,7 @@ export const extractFromImage = createServerFn({ method: "POST" })
       const charCount = (data.text?.length ?? 0) + (data.image ? 1500 : 0);
       const tokens = Math.ceil(charCount / 4);
       const cost = usedMode === "advanced" ? tokens * 0.000005 : tokens * 0.000001;
-      await supabaseAdmin.from("ai_usage_logs").insert({
+      await context.supabase.from("ai_usage_logs").insert({
         user_id: context.userId,
         entry_id: data.entryId ?? null,
         template_id: data.templateId ?? null,

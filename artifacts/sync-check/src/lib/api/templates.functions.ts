@@ -37,7 +37,7 @@ export const saveTemplate = createServerFn({ method: "POST" })
       pageSize: z.string().max(20).default("custom"),
       width: z.number().int().positive().max(20000),
       height: z.number().int().positive().max(20000),
-      backgroundUrl: z.string().max(5_000_000).nullable().optional(),
+      backgroundUrl: z.string().max(50_000_000).nullable().optional(),
       snapshot: z.any(),
       category: z.string().trim().max(60).nullable().optional(),
       aiInstructions: z.string().max(4000).nullable().optional(),

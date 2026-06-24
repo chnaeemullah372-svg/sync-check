@@ -2,7 +2,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Undo2, Redo2, MoreHorizontal, Check, Download, Maximize2 } from "lucide-react";
 import { useDesigner } from "@/lib/designer/store";
 import { Button } from "@/components/ui/button";
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { saveTemplate } from "@/lib/api/templates.functions";
@@ -78,7 +78,7 @@ export function CanvaTopBar({ userMode, entryId }: Props) {
       qc.invalidateQueries({ queryKey: ["my-templates"] });
       clearDesignerAutosave();
       toast.success(currentTid ? `Updated: ${finalName}` : `Saved: ${finalName}`);
-      // Go back to Admin → Manage Templates after saving
+      // Go back to Admin → Manage Templates
       navigate({ to: "/card/admin" });
     } catch (e: any) {
       toast.error(`Save failed: ${e?.message || e}`);
