@@ -43,6 +43,7 @@ type ImportedPsdLayer = {
   width?: number;
   height?: number;
   rotation?: number;
+  opacity?: number;
   src?: string;
   text?: string;
   fontSize?: number;
@@ -58,6 +59,7 @@ type ImportedPsdLayer = {
   lineHeight?: number;
   letterSpacing?: number;
   scaleXText?: number;
+  scaleYText?: number;
   psdBounds?: { left: number; top: number; right: number; bottom: number };
   psdTextTransform?: unknown;
   psdLeading?: number;
@@ -445,7 +447,7 @@ function DesignerPage() {
               width: l.width ?? 120,
               height: l.height ?? 32,
               rotation: l.rotation || 0,
-              opacity: 1,
+              opacity: l.opacity ?? 1,
               visible: true,
               locked: false,
               text: l.text || "",
@@ -462,6 +464,7 @@ function DesignerPage() {
               lineHeight: l.lineHeight ?? 1.2,
               letterSpacing: l.letterSpacing,
               scaleXText: l.scaleXText ?? 1,
+              scaleYText: l.scaleYText ?? 1,
               psdBounds: l.psdBounds,
               psdTextTransform: l.psdTextTransform,
               psdLeading: l.psdLeading,
@@ -477,7 +480,7 @@ function DesignerPage() {
             width: l.width ?? 120,
             height: l.height ?? 120,
             rotation: 0,
-            opacity: 1,
+            opacity: l.opacity ?? 1,
             visible: true,
             locked: false,
             src: l.src ?? null,

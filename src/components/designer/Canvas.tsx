@@ -109,13 +109,14 @@ function TextNode({ layer, onSelect, onChange, onDragEnd, onDblClick, nodeRef, g
   useEffect(() => { nodeRef(ref.current); return () => nodeRef(null); }, [nodeRef]);
   const renderedFontSize = fitTextFontSize(layer);
   const textScaleX = layer.autoFit === false || layer.originalFontFamily || layer.missingFont || layer.fontMissing ? (layer.scaleXText ?? 1) : 1;
+  const textScaleY = layer.autoFit === false || layer.originalFontFamily || layer.missingFont || layer.fontMissing ? (layer.scaleYText ?? 1) : 1;
   return (
     <Text
       ref={ref}
       text={layer.text} x={layer.x} y={layer.y} width={layer.width} height={layer.height}
       fontSize={renderedFontSize} fontFamily={layer.fontFamily} fontStyle={layer.fontStyle}
       fill={layer.fill} align={layer.align} rotation={layer.rotation}
-      lineHeight={layer.lineHeight ?? 1.2} letterSpacing={layer.letterSpacing ?? 0} scaleX={textScaleX}
+      lineHeight={layer.lineHeight ?? 1.2} letterSpacing={layer.letterSpacing ?? 0} scaleX={textScaleX} scaleY={textScaleY}
       wrap="none" ellipsis={layer.autoFit !== false} verticalAlign="top" direction={layer.rtl ? "rtl" : "ltr"}
       opacity={layer.opacity} visible={layer.visible}
       listening={!layer.locked}
@@ -132,8 +133,9 @@ function TextNode({ layer, onSelect, onChange, onDragEnd, onDblClick, nodeRef, g
           (anchor.startsWith("top") || anchor.startsWith("bottom")) &&
           (anchor.endsWith("left") || anchor.endsWith("right"));
         const baseTextScaleX = textScaleX || 1;
+        const baseTextScaleY = textScaleY || 1;
         const next: Partial<TextLayer> = { x: node.x(), y: node.y(),
-          width: Math.max(20, (layer.width * sx) / baseTextScaleX), height: Math.max(10, layer.height * sy),
+          width: Math.max(20, (layer.width * sx) / baseTextScaleX), height: Math.max(10, (layer.height * sy) / baseTextScaleY),
           rotation: node.rotation() };
         if (isCorner) {
           const factor = Math.abs(sy) || Math.abs(sx) || 1;

@@ -161,6 +161,7 @@ type PsdNode = {
   top?: number;
   right?: number;
   bottom?: number;
+  opacity?: number;
   children?: PsdNode[];
   text?: PsdTextInfo;
   canvas?: HTMLCanvasElement;
@@ -246,6 +247,12 @@ function resolvePsdFont(raw: unknown) {
   return { family: fallbackFontFor(requested), requested: rawName, missing: true };
 }
 
+function getPsdOpacity(n: PsdNode) {
+  const raw = Number(n.opacity ?? 1);
+  if (!Number.isFinite(raw)) return 1;
+  return Math.max(0, Math.min(1, raw > 1 ? raw / 255 : raw));
+}
+
 function sizedValue(input: unknown) {
   if (input && typeof input === "object" && "value" in input) {
     return (input as PsdSizedValue).value;
@@ -307,10 +314,45 @@ function getUnitsBounds(input: unknown) {
   return null;
 }
 
+function getTransformPoint(transform: number[] | null, x: number, y: number) {
+  if (!transform || transform.length < 6) return null;
+  const [a, b, c, d, tx, ty] = transform;
+  if (![a, b, c, d, tx, ty].every(Number.isFinite)) return null;
+  return { x: a * x + c * y + tx, y: b * x + d * y + ty };
+}
+
+function getTransformedTextBounds(
+  bounds: { left: number; top: number; right: number; bottom: number },
+  transform: number[] | null,
+  fallbackX: number,
+  fallbackY: number,
+) {
+  const corners = [
+    getTransformPoint(transform, bounds.left, bounds.top),
+    getTransformPoint(transform, bounds.right, bounds.top),
+    getTransformPoint(transform, bounds.left, bounds.bottom),
+    getTransformPoint(transform, bounds.right, bounds.bottom),
+  ];
+  if (corners.every(Boolean)) {
+    const xs = corners.map((point) => point!.x);
+    const ys = corners.map((point) => point!.y);
+    return {
+      left: Math.min(...xs),
+      top: Math.min(...ys),
+      right: Math.max(...xs),
+      bottom: Math.max(...ys),
+    };
+  }
+  return {
+    left: fallbackX + bounds.left,
+    top: fallbackY + bounds.top,
+    right: fallbackX + bounds.right,
+    bottom: fallbackY + bounds.bottom,
+  };
+}
+
 function getPsdTextBounds(n: PsdNode, textInfo: PsdTextInfo) {
   const transform = Array.isArray(textInfo.transform) ? textInfo.transform.map(Number) : null;
-  const tx = transform && Number.isFinite(transform[4]) ? transform[4] : undefined;
-  const ty = transform && Number.isFinite(transform[5]) ? transform[5] : undefined;
   const rawNodeBounds = { left: n.left, top: n.top, right: n.right, bottom: n.bottom };
   const nodeBounds = {
     left: rawNodeBounds.left ?? 0,
@@ -325,6 +367,23 @@ function getPsdTextBounds(n: PsdNode, textInfo: PsdTextInfo) {
     height: Math.max(1, bounds.bottom - bounds.top),
     psdBounds: bounds,
   });
+  if (Array.isArray(textInfo.boxBounds) && textInfo.boxBounds.length >= 4) {
+    const [top, left, bottom, right] = textInfo.boxBounds.map(Number);
+    if ([top, left, bottom, right].every(Number.isFinite) && right > left && bottom > top) {
+      return fromBounds(
+        getTransformedTextBounds(
+          { left, top, right, bottom },
+          transform,
+          n.left ?? 0,
+          n.top ?? 0,
+        ),
+      );
+    }
+  }
+  const explicit = getUnitsBounds(textInfo.bounds) || getUnitsBounds(textInfo.boundingBox);
+  if (explicit) {
+    return fromBounds(getTransformedTextBounds(explicit, transform, n.left ?? 0, n.top ?? 0));
+  }
   const exactNodeBounds = fromBounds(nodeBounds);
   const hasExactNodeBounds = [
     rawNodeBounds.left,
@@ -333,19 +392,6 @@ function getPsdTextBounds(n: PsdNode, textInfo: PsdTextInfo) {
     rawNodeBounds.bottom,
   ].every((value) => typeof value === "number" && Number.isFinite(value)) && nodeBounds.right > nodeBounds.left && nodeBounds.bottom > nodeBounds.top;
   if (hasExactNodeBounds) return exactNodeBounds;
-  if (Array.isArray(textInfo.boxBounds) && textInfo.boxBounds.length >= 4) {
-    const [top, left, bottom, right] = textInfo.boxBounds.map(Number);
-    if ([top, left, bottom, right].every(Number.isFinite)) {
-      const x = (tx ?? n.left ?? 0) + left;
-      const y = (ty ?? n.top ?? 0) + top;
-      const bounds = { left: x, top: y, right: x + Math.max(1, right - left), bottom: y + Math.max(1, bottom - top) };
-      return fromBounds(bounds);
-    }
-  }
-  const explicit = getUnitsBounds(textInfo.bounds) || getUnitsBounds(textInfo.boundingBox);
-  if (explicit) {
-    return fromBounds(explicit);
-  }
   return exactNodeBounds;
 }
 
@@ -503,6 +549,7 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
         width: number;
         height: number;
         rotation?: number;
+        opacity?: number;
         src?: string;
         text?: string;
         fontSize?: number;
@@ -518,6 +565,7 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
         lineHeight?: number;
         letterSpacing?: number;
         scaleXText?: number;
+        scaleYText?: number;
         psdBounds?: { left: number; top: number; right: number; bottom: number };
         psdTextTransform?: unknown;
         psdLeading?: number;
@@ -530,12 +578,14 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
       await document.fonts?.ready;
       const walk = (nodes: PsdNode[] | undefined) => {
         if (!nodes) return;
-        for (const n of nodes) {
+        // ag-psd exposes Photoshop's layer panel order top-to-bottom. Konva
+        // paints array order bottom-to-top, so import each sibling list in reverse.
+        for (const n of [...nodes].reverse()) {
+          if (n.hidden) continue;
           if (n.children) {
             walk(n.children);
             continue;
           }
-          if (n.hidden) continue;
           const left = n.left ?? 0;
           const top = n.top ?? 0;
           const right = n.right ?? left;
@@ -557,7 +607,8 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
             );
             if (resolvedFont.missing) missingFonts.add(resolvedFont.requested);
             const transformScale = getTextTransformScale(textInfo);
-            const fontSize = getPsdFontSize(style, textBounds.height) * transformScale.sy;
+            const baseFontSize = getPsdFontSize(style, textBounds.height);
+            const fontSize = baseFontSize;
             const paragraph =
               textInfo.paragraphStyle || textInfo.paragraphStyleRuns?.[0]?.style || {};
             const justification = String(
@@ -576,6 +627,7 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
               y: textBounds.y,
               width: textBounds.width,
               height: textBounds.height,
+              opacity: getPsdOpacity(n),
               text: n.text.text,
               fontSize,
               fontFamily: resolvedFont.family,
@@ -587,9 +639,10 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
               missingFont: resolvedFont.missing,
               fontMissing: resolvedFont.missing,
               autoFit: false,
-              lineHeight: getPsdLineHeight(style, fontSize),
+              lineHeight: getPsdLineHeight(style, baseFontSize),
               letterSpacing: getPsdLetterSpacing(style, fontSize),
               scaleXText: getPsdTextScale(style) * transformScale.sx,
+              scaleYText: transformScale.sy,
               psdBounds: textBounds.psdBounds,
               psdTextTransform: textInfo.transform,
               psdLeading: getPsdLeading(style),
@@ -611,6 +664,7 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
               y: top,
               width: w,
               height: h,
+              opacity: getPsdOpacity(n),
               src,
             });
           } catch {
