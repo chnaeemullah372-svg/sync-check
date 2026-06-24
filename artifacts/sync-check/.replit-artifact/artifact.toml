@@ -29,11 +29,10 @@ NODE_ENV = "production"
 args = ["node", "artifacts/sync-check/.output/server/index.mjs"]
 
 [services.production.run.env]
-PORT = "21974"
 NODE_ENV = "production"
 
 [services.production.health.startup]
-path = "/auth"
+path = "/healthz"
 
 [services.env]
 PORT = "21974"
