@@ -6,6 +6,27 @@ const AUTOSAVE_KEY = "designer.autosave.v2";
 // legacy localStorage key (small payloads only) — used as fallback for older sessions
 const LEGACY_LS_KEY = "designer.autosave";
 
+async function readAutosavePayload() {
+  let p: any = await idbGet(AUTOSAVE_KEY);
+  if (!p) {
+    const raw = localStorage.getItem(LEGACY_LS_KEY);
+    if (raw) p = JSON.parse(raw);
+  }
+  if (!p || typeof p !== "object") return null;
+  const hasContent =
+    (Array.isArray(p.layers) && p.layers.length > 0) || p.background?.src;
+  return hasContent ? p : null;
+}
+
+export async function getDesignerAutosaveSnapshot() {
+  try {
+    return await readAutosavePayload();
+  } catch (e) {
+    console.warn("Autosave read failed", e);
+    return null;
+  }
+}
+
 /**
  * Persist the designer state to IndexedDB on every change so a refresh
  * (or accidental tab close) does not wipe in-progress work, even when the
@@ -21,16 +42,8 @@ export function useDesignerAutosave(opts: { skipHydrate?: boolean } = {}) {
     let cancelled = false;
     (async () => {
       try {
-        let p: any = await idbGet(AUTOSAVE_KEY);
-        if (!p) {
-          // try legacy localStorage payload
-          const raw = localStorage.getItem(LEGACY_LS_KEY);
-          if (raw) p = JSON.parse(raw);
-        }
+        const p = await readAutosavePayload();
         if (cancelled || !p || typeof p !== "object") return;
-        const hasContent =
-          (Array.isArray(p.layers) && p.layers.length > 0) || p.background?.src;
-        if (!hasContent) return;
         loadState({
           background: p.background,
           canvasWidth: p.canvasWidth,
