@@ -21,8 +21,8 @@ timeoutMs = 20000
 [userenv]
 
 [userenv.shared]
-SUPABASE_URL = "https://eemqusgtziqtgiomlqae.supabase.co"
-SUPABASE_PROJECT_ID = "eemqusgtziqtgiomlqae"
-SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVlbXF1c2d0emlxdGdpb21scWFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0NDI4MzMsImV4cCI6MjA5NzAxODgzM30.bSW2CwHHMN-yIsUPrGfxfBMThn0K_CCFYfu6XAcXS3M"
+SUPABASE_URL = "https://yqkdmchatsqykvmfmraj.supabase.co"
+SUPABASE_PROJECT_ID = "yqkdmchatsqykvmfmraj"
+SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlxa2RtY2hhdHNxeWt2bWZtcmFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyNTc0MzQsImV4cCI6MjA5NzgzMzQzNH0.suniLk49jRbQne4D5c1l-n8RBRGFwL9Vr1sK506tj1E"
 ADMIN_USERNAME = "naeem"
 ADMIN_PASSWORD = "naeem,600"
