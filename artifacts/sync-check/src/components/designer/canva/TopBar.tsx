@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Undo2, Redo2, MoreHorizontal, Check, Download, Maximize2 } from "lucide-react";
 import { useDesigner } from "@/lib/designer/store";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ export function CanvaTopBar({ userMode, entryId }: Props) {
   const [saving, setSaving] = useState(false);
   const saveTemplateFn = useServerFn(saveTemplate);
   const qc = useQueryClient();
+  const navigate = useNavigate();
 
   const backTo = userMode && entryId ? `/user/entries/${entryId}` : "/card/admin";
 
@@ -77,6 +78,8 @@ export function CanvaTopBar({ userMode, entryId }: Props) {
       qc.invalidateQueries({ queryKey: ["my-templates"] });
       clearDesignerAutosave();
       toast.success(currentTid ? `Updated: ${finalName}` : `Saved: ${finalName}`);
+      // Go back to Admin → Manage Templates after saving
+      navigate({ to: "/card/admin" });
     } catch (e: any) {
       toast.error(`Save failed: ${e?.message || e}`);
     } finally { setSaving(false); }

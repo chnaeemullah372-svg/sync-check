@@ -19,7 +19,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { saveTemplate } from "@/lib/api/templates.functions";
 import { useQueryClient } from "@tanstack/react-query";
 import { clearDesignerAutosave } from "@/hooks/use-designer-autosave";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
@@ -173,6 +173,7 @@ export function Toolbar({ stageRef, userMode = false, entryId }: { stageRef: Rea
   const saveTemplateFn = useServerFn(saveTemplate);
   const qc = useQueryClient();
   const [savingDb, setSavingDb] = useState(false);
+  const navigate = useNavigate();
 
   const onSaveTemplate = async () => {
     const currentTid = typeof sessionStorage !== "undefined" ? sessionStorage.getItem("designer.currentTemplateId") : null;
@@ -217,6 +218,7 @@ export function Toolbar({ stageRef, userMode = false, entryId }: { stageRef: Rea
       qc.invalidateQueries({ queryKey: ["my-templates"] });
       clearDesignerAutosave();
       toast.success(currentTid ? `Template updated: ${finalName}` : `Template saved: ${finalName}`);
+      if (!userMode) navigate({ to: "/card/admin" });
     } catch (e: any) {
       toast.error(`Library save failed: ${e?.message || e}. Saved locally only.`);
     } finally {

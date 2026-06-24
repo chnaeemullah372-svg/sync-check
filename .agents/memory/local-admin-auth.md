@@ -33,5 +33,12 @@ Both `templates.functions.ts` and `admin.functions.ts`:
 - 4 NRC templates auto-seeded on first `localListTemplates()` call
 
 ## Env vars needed
-- `ADMIN_USERNAME` (default: "naeem"), `ADMIN_PASSWORD`
+- `ADMIN_USERNAME` (default: "naeem"), `ADMIN_PASSWORD` (hardcode fallback: "naeem,600" in code — also set in `.env`)
 - `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+- If `ADMIN_PASSWORD` not in env, code falls back to "naeem,600" so login always works
+
+## Templates: 2 combined (not 4)
+Local DB has 2 templates: "Pakistan NIC Card (psd3)" and "Old CNIC Card (ops2)" — front+back in one entry.
+
+## Save → redirect
+After template save in designer (TopBar.tsx + Toolbar.tsx), navigates to `/card/admin` so user lands on Manage Templates.
