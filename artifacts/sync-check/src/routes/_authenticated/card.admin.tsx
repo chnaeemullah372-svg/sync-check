@@ -57,7 +57,7 @@ import {
   adminResetPassword,
   adminDeleteUser,
 } from "@/lib/api/admin.functions";
-import { duplicateTemplateFn } from "@/lib/api/templates.functions";
+import { duplicateTemplateFn, listLocalTemplatesFn } from "@/lib/api/templates.functions";
 import { useBackButtonClose } from "@/hooks/use-back-close";
 import { NewTemplateModal } from "@/components/designer/NewTemplateModal";
 
@@ -359,14 +359,18 @@ function CreateUserButton() {
 
 function OverviewTab({ onGo }: { onGo: (t: Tab) => void }) {
   const listFn = useServerFn(adminListUsers);
+  const listLocalFn = useServerFn(listLocalTemplatesFn);
   const { data: users } = useQuery({ queryKey: ["admin-users"], queryFn: () => listFn() });
   const { data: templates } = useQuery({
     queryKey: ["admin-templates"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("templates")
         .select("id, archived_at")
         .order("updated_at", { ascending: false });
+      if (error?.code === "PGRST205" || error?.message?.includes("does not exist")) {
+        return await listLocalFn();
+      }
       return data ?? [];
     },
   });
@@ -484,14 +488,18 @@ function TemplatesTab({ archivedView }: { archivedView: boolean }) {
   const archiveFn = useServerFn(adminSetTemplateArchived);
   const deleteFn = useServerFn(adminDeleteTemplate);
   const duplicateFn = useServerFn(duplicateTemplateFn);
+  const listLocalFn = useServerFn(listLocalTemplatesFn);
 
   const { data: templates, isLoading } = useQuery({
     queryKey: ["admin-templates"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("templates")
         .select("id, name, category, status, archived_at, width, height, updated_at")
         .order("updated_at", { ascending: false });
+      if (error?.code === "PGRST205" || error?.message?.includes("does not exist")) {
+        return await listLocalFn();
+      }
       return data ?? [];
     },
   });

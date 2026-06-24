@@ -30,17 +30,25 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
 
     const authHeader = request.headers.get('authorization');
 
-    if (!authHeader) {
-      throw new Error('Unauthorized: No authorization header provided');
+    // Extract Bearer token from header, OR fall back to the local-admin cookie
+    // (set by the client after a successful localAdminSignIn so that server
+    // functions receive a valid Supabase JWT even without an explicit header).
+    let token: string | null = null;
+    if (authHeader?.startsWith('Bearer ')) {
+      token = authHeader.replace('Bearer ', '');
+    } else {
+      const cookieHeader = request.headers.get('cookie') ?? '';
+      for (const part of cookieHeader.split(';')) {
+        const eqIdx = part.indexOf('=');
+        if (eqIdx === -1) continue;
+        const k = part.slice(0, eqIdx).trim();
+        const v = part.slice(eqIdx + 1).trim();
+        if (k === 'sb-local-admin-token') { token = v; break; }
+      }
     }
 
-    if (!authHeader.startsWith('Bearer ')) {
-      throw new Error('Unauthorized: Only Bearer tokens are supported');
-    }
-
-    const token = authHeader.replace('Bearer ', '');
     if (!token) {
-      throw new Error('Unauthorized: No token provided');
+      throw new Error('Unauthorized: No authorization header provided');
     }
 
     const supabase = createClient<Database>(

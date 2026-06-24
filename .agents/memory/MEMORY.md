@@ -1,2 +1,3 @@
 - [sync-check artifact (TanStack Start)](sync-check-artifact.md) — external app runs as a Node-SSR artifact; nitro node-server, manual host/port, @tanstack/query-core direct dep.
-- [Local admin auth](local-admin-auth.md) — naeem login bypasses Supabase; ADMIN_USERNAME/ADMIN_PASSWORD env vars + localStorage token; service_role not needed for admin login.
+- [Local admin auth flow](local-admin-auth.md) — naeem login creates real Supabase user + JWT; cookie `sb-local-admin-token` bridges JWT to server-fn HTTP calls; assertAdmin allows @admin.local emails.
+- [Template local file store](template-local-store.md) — when Supabase tables missing (PGRST205), all template CRUD falls back to `.local-db/templates.json`; 4 NRC templates auto-seeded on first read.

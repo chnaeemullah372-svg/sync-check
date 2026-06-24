@@ -71,10 +71,19 @@ function AuthPage() {
       try {
         const result = await localAdminSignIn({ data: { username: username.trim(), password } });
         if (result.ok) {
+          // If we got a real Supabase session, set it so server fns work.
+          // Also store the access_token in a cookie so TanStack Start server
+          // functions (which read HTTP request headers) can authenticate.
+          if (result.session) {
+            await supabase.auth.setSession(result.session);
+            const maxAge = result.session.expires_in ?? 3600;
+            document.cookie = `sb-local-admin-token=${result.session.access_token}; path=/; max-age=${maxAge}; SameSite=Strict`;
+          }
           localStorage.setItem(LOCAL_ADMIN_KEY, JSON.stringify({
             email: "naeem@admin.local",
             role: "admin",
             ts: Date.now(),
+            hasSupabaseSession: !!result.session,
           }));
           setBusy(false);
           toast.success("Signed in");
