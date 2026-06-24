@@ -9,7 +9,6 @@ args = ["pnpm", "store", "prune"]
 env = { "CI" = "true" }
 
 [workflows]
-runButton = "Project"
 
 [agent]
 stack = "PNPM_WORKSPACE"
@@ -18,3 +17,10 @@ expertMode = true
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
+
+[userenv]
+
+[userenv.shared]
+SUPABASE_URL = "\"https://eemqusgtziqtgiomlqae.supabase.co\""
+SUPABASE_PROJECT_ID = "\"eemqusgtziqtgiomlqae\""
+SUPABASE_PUBLISHABLE_KEY = "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVlbXF1c2d0emlxdGdpb21scWFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0NDI4MzMsImV4cCI6MjA5NzAxODgzM30.bSW2CwHHMN-yIsUPrGfxfBMThn0K_CCFYfu6XAcXS3M\""

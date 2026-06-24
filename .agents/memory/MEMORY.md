@@ -1,0 +1,1 @@
+- [sync-check artifact (TanStack Start)](sync-check-artifact.md) — external app runs as a Node-SSR artifact; nitro node-server, manual host/port, @tanstack/query-core direct dep.

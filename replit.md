@@ -1,6 +1,6 @@
-# [Project name]
+# Sync Check
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A National-ID / card designer and case-management admin app (TanStack Start + React 19 + Supabase). Users log in, design ID-card templates from PSDs, and auto-fill them. Brought into this Replit workspace as the `sync-check` artifact.
 
 ## Run & Operate
 
@@ -22,11 +22,14 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/sync-check/` — the Sync Check app (TanStack Start SSR). Source under `src/`, Supabase client + migrations under `supabase/`, build config in `vite.config.ts`.
+- `artifacts/sync-check/.replit-artifact/artifact.toml` — service/deploy config (Node SSR server).
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- This repl is locked to the artifact model; external apps run as artifacts under `artifacts/`, not as the workspace root.
+- Sync Check builds a standalone Node server via nitro `node-server` preset (overrides the lovable config's cloudflare default); production runs `node .output/server/index.mjs`.
+- `@tanstack/query-core` is a direct dependency to satisfy the production rollup build (see `.agents/memory/sync-check-artifact.md`).
 
 ## Product
 
