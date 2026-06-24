@@ -312,26 +312,38 @@ function getTransformPoint(transform: number[] | null, x: number, y: number) {
   return { x: a * x + c * y + tx, y: b * x + d * y + ty };
 }
 
-function getTranslatedTextBounds(
+function getTransformedTextBounds(
   bounds: { left: number; top: number; right: number; bottom: number },
   transform: number[] | null,
   fallbackX: number,
   fallbackY: number,
 ) {
-  const tx = transform && Number.isFinite(transform[4]) ? transform[4] : fallbackX;
-  const ty = transform && Number.isFinite(transform[5]) ? transform[5] : fallbackY;
+  const corners = [
+    getTransformPoint(transform, bounds.left, bounds.top),
+    getTransformPoint(transform, bounds.right, bounds.top),
+    getTransformPoint(transform, bounds.left, bounds.bottom),
+    getTransformPoint(transform, bounds.right, bounds.bottom),
+  ];
+  if (corners.every(Boolean)) {
+    const xs = corners.map((point) => point!.x);
+    const ys = corners.map((point) => point!.y);
+    return {
+      left: Math.min(...xs),
+      top: Math.min(...ys),
+      right: Math.max(...xs),
+      bottom: Math.max(...ys),
+    };
+  }
   return {
-    left: tx + bounds.left,
-    top: ty + bounds.top,
-    right: tx + bounds.right,
-    bottom: ty + bounds.bottom,
+    left: fallbackX + bounds.left,
+    top: fallbackY + bounds.top,
+    right: fallbackX + bounds.right,
+    bottom: fallbackY + bounds.bottom,
   };
 }
 
 function getPsdTextBounds(n: PsdNode, textInfo: PsdTextInfo) {
   const transform = Array.isArray(textInfo.transform) ? textInfo.transform.map(Number) : null;
-  const tx = transform && Number.isFinite(transform[4]) ? transform[4] : undefined;
-  const ty = transform && Number.isFinite(transform[5]) ? transform[5] : undefined;
   const rawNodeBounds = { left: n.left, top: n.top, right: n.right, bottom: n.bottom };
   const nodeBounds = {
     left: rawNodeBounds.left ?? 0,
@@ -346,24 +358,22 @@ function getPsdTextBounds(n: PsdNode, textInfo: PsdTextInfo) {
     height: Math.max(1, bounds.bottom - bounds.top),
     psdBounds: bounds,
   });
-  const explicit = getUnitsBounds(textInfo.bounds) || getUnitsBounds(textInfo.boundingBox);
-  if (explicit) {
-    return fromBounds(getTranslatedTextBounds(explicit, transform, n.left ?? 0, n.top ?? 0));
-  }
   if (Array.isArray(textInfo.boxBounds) && textInfo.boxBounds.length >= 4) {
     const [top, left, bottom, right] = textInfo.boxBounds.map(Number);
-    if ([top, left, bottom, right].every(Number.isFinite)) {
-      const origin = getTransformPoint(transform, left, top);
-      const x = origin?.x ?? (tx ?? n.left ?? 0) + left;
-      const y = origin?.y ?? (ty ?? n.top ?? 0) + top;
-      const bounds = {
-        left: x,
-        top: y,
-        right: x + Math.max(1, right - left),
-        bottom: y + Math.max(1, bottom - top),
-      };
-      return fromBounds(bounds);
+    if ([top, left, bottom, right].every(Number.isFinite) && right > left && bottom > top) {
+      return fromBounds(
+        getTransformedTextBounds(
+          { left, top, right, bottom },
+          transform,
+          n.left ?? 0,
+          n.top ?? 0,
+        ),
+      );
     }
+  }
+  const explicit = getUnitsBounds(textInfo.bounds) || getUnitsBounds(textInfo.boundingBox);
+  if (explicit) {
+    return fromBounds(getTransformedTextBounds(explicit, transform, n.left ?? 0, n.top ?? 0));
   }
   const exactNodeBounds = fromBounds(nodeBounds);
   const hasExactNodeBounds = [
@@ -588,7 +598,7 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
             if (resolvedFont.missing) missingFonts.add(resolvedFont.requested);
             const transformScale = getTextTransformScale(textInfo);
             const baseFontSize = getPsdFontSize(style, textBounds.height);
-            const fontSize = baseFontSize * transformScale.sy;
+            const fontSize = baseFontSize;
             const paragraph =
               textInfo.paragraphStyle || textInfo.paragraphStyleRuns?.[0]?.style || {};
             const justification = String(
@@ -599,6 +609,17 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
               : justification.includes("right")
                 ? "right"
                 : "left";
+            console.debug("[PSD text import]", {
+              layer: n.name || "Text",
+              nodeBounds: { left, top, right, bottom },
+              boxBounds: textInfo.boxBounds,
+              bounds: textInfo.bounds,
+              boundingBox: textInfo.boundingBox,
+              transform: textInfo.transform,
+              calculatedBounds: textBounds,
+              fontSize,
+              transformScale,
+            });
             out.push({
               id: crypto.randomUUID(),
               name: n.name || "Text",
