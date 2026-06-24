@@ -1,1 +1,2 @@
 - [sync-check artifact (TanStack Start)](sync-check-artifact.md) — external app runs as a Node-SSR artifact; nitro node-server, manual host/port, @tanstack/query-core direct dep.
+- [Local admin auth](local-admin-auth.md) — naeem login bypasses Supabase; ADMIN_USERNAME/ADMIN_PASSWORD env vars + localStorage token; service_role not needed for admin login.

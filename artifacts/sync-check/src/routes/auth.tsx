@@ -7,6 +7,25 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
+import { localAdminSignIn } from "@/lib/api/local-admin-auth.functions";
+
+const LOCAL_ADMIN_KEY = "local_admin_session";
+const MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+function getLocalAdminSession() {
+  try {
+    const raw = localStorage.getItem(LOCAL_ADMIN_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { email: string; role: string; ts: number };
+    if (Date.now() - parsed.ts > MAX_AGE_MS) {
+      localStorage.removeItem(LOCAL_ADMIN_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -33,6 +52,11 @@ function AuthPage() {
 
   useEffect(() => {
     if (loading) return;
+    const localAdmin = getLocalAdminSession();
+    if (localAdmin) {
+      navigate({ to: "/card/admin", replace: true });
+      return;
+    }
     if (user && role) {
       navigate({ to: role === "admin" ? "/card/admin" : "/user", replace: true });
     }
@@ -41,6 +65,27 @@ function AuthPage() {
   const signIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
+
+    const isAdminUsername = username.trim().toLowerCase() === "naeem";
+    if (isAdminUsername) {
+      try {
+        const result = await localAdminSignIn({ data: { username: username.trim(), password } });
+        if (result.ok) {
+          localStorage.setItem(LOCAL_ADMIN_KEY, JSON.stringify({
+            email: "naeem@admin.local",
+            role: "admin",
+            ts: Date.now(),
+          }));
+          setBusy(false);
+          toast.success("Signed in");
+          navigate({ to: "/card/admin", replace: true });
+          return;
+        }
+      } catch {
+        // fall through to Supabase if server fn fails
+      }
+    }
+
     const { error } = await supabase.auth.signInWithPassword({
       email: toEmail(username),
       password,
@@ -61,7 +106,6 @@ function AuthPage() {
       </div>
       <Card className="relative w-full max-w-md border border-emerald-500/30 bg-black/80 p-8 shadow-[0_0_60px_-15px_rgba(16,185,129,0.5)] backdrop-blur-xl">
         <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-2xl border border-emerald-400/40 bg-black shadow-[inset_0_0_30px_rgba(16,185,129,0.3)]">
-          {/* Anonymous hacker mask */}
           <svg viewBox="0 0 64 64" className="h-12 w-12 text-emerald-400" fill="currentColor">
             <path d="M32 6C18 6 12 18 12 30c0 10 4 18 10 22 2 1 4 2 6 2h8c2 0 4-1 6-2 6-4 10-12 10-22 0-12-6-24-20-24Zm-9 24c-3 0-5-2-5-5s2-5 5-5h5c3 0 5 2 5 5s-2 5-5 5h-5Zm18 0c-3 0-5-2-5-5s2-5 5-5h0c3 0 5 2 5 5s-2 5-5 5Zm-9 18c-4 0-7-2-9-5h18c-2 3-5 5-9 5Z" />
             <rect x="16" y="26" width="14" height="3" fill="black" />

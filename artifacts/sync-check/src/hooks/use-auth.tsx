@@ -16,14 +16,42 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+const LOCAL_ADMIN_KEY = "local_admin_session";
+const MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+function getLocalAdminSession() {
+  if (typeof localStorage === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(LOCAL_ADMIN_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { email: string; role: string; ts: number };
+    if (Date.now() - parsed.ts > MAX_AGE_MS) {
+      localStorage.removeItem(LOCAL_ADMIN_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<Role>(null);
   const [loading, setLoading] = useState(true);
+  const [localAdminUser, setLocalAdminUser] = useState<User | null>(null);
   const router = useRouter();
   const qc = useQueryClient();
 
   useEffect(() => {
+    const localAdmin = getLocalAdminSession();
+    if (localAdmin) {
+      setRole("admin");
+      setLocalAdminUser({ id: "local-admin", email: localAdmin.email } as User);
+      setLoading(false);
+      return;
+    }
+
     const fetchRole = async (uid: string) => {
       const { data } = await supabase
         .from("user_roles")
@@ -60,14 +88,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [router, qc]);
 
   const signOut = async () => {
+    localStorage.removeItem(LOCAL_ADMIN_KEY);
+    setLocalAdminUser(null);
+    setRole(null);
     await qc.cancelQueries();
     qc.clear();
     await supabase.auth.signOut();
     router.navigate({ to: "/auth", replace: true });
   };
 
+  const user = localAdminUser ?? session?.user ?? null;
+
   return (
-    <AuthContext.Provider value={{ user: session?.user ?? null, session, role, loading, signOut }}>
+    <AuthContext.Provider value={{ user, session, role, loading, signOut }}>
       {children}
     </AuthContext.Provider>
   );
