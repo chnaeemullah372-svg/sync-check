@@ -342,6 +342,23 @@ function getTransformedTextBounds(
   };
 }
 
+function getPsdTextFrame(
+  bounds: { left: number; top: number; right: number; bottom: number },
+  transform: number[] | null,
+  fallbackX: number,
+  fallbackY: number,
+) {
+  const origin = getTransformPoint(transform, bounds.left, bounds.top);
+  const visualBounds = getTransformedTextBounds(bounds, transform, fallbackX, fallbackY);
+  return {
+    x: origin?.x ?? fallbackX + bounds.left,
+    y: origin?.y ?? fallbackY + bounds.top,
+    width: Math.max(1, bounds.right - bounds.left),
+    height: Math.max(1, bounds.bottom - bounds.top),
+    psdBounds: visualBounds,
+  };
+}
+
 function getPsdTextBounds(n: PsdNode, textInfo: PsdTextInfo) {
   const transform = Array.isArray(textInfo.transform) ? textInfo.transform.map(Number) : null;
   const rawNodeBounds = { left: n.left, top: n.top, right: n.right, bottom: n.bottom };
@@ -361,19 +378,12 @@ function getPsdTextBounds(n: PsdNode, textInfo: PsdTextInfo) {
   if (Array.isArray(textInfo.boxBounds) && textInfo.boxBounds.length >= 4) {
     const [top, left, bottom, right] = textInfo.boxBounds.map(Number);
     if ([top, left, bottom, right].every(Number.isFinite) && right > left && bottom > top) {
-      return fromBounds(
-        getTransformedTextBounds(
-          { left, top, right, bottom },
-          transform,
-          n.left ?? 0,
-          n.top ?? 0,
-        ),
-      );
+      return getPsdTextFrame({ left, top, right, bottom }, transform, n.left ?? 0, n.top ?? 0);
     }
   }
   const explicit = getUnitsBounds(textInfo.bounds) || getUnitsBounds(textInfo.boundingBox);
   if (explicit) {
-    return fromBounds(getTransformedTextBounds(explicit, transform, n.left ?? 0, n.top ?? 0));
+    return getPsdTextFrame(explicit, transform, n.left ?? 0, n.top ?? 0);
   }
   const exactNodeBounds = fromBounds(nodeBounds);
   const hasExactNodeBounds = [
@@ -610,17 +620,6 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
               : justification.includes("right")
                 ? "right"
                 : "left";
-            console.debug("[PSD text import]", {
-              layer: n.name || "Text",
-              nodeBounds: { left, top, right, bottom },
-              boxBounds: textInfo.boxBounds,
-              bounds: textInfo.bounds,
-              boundingBox: textInfo.boundingBox,
-              transform: textInfo.transform,
-              calculatedBounds: textBounds,
-              fontSize,
-              transformScale,
-            });
             out.push({
               id: crypto.randomUUID(),
               name: n.name || "Text",
@@ -675,23 +674,6 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
         }
       };
       walk(psd.children as unknown as PsdNode[] | undefined);
-
-      const isLargeImageLayer = (layer: Out) => {
-        if (layer.type !== "image") return false;
-        const layerArea = layer.width * layer.height;
-        const canvasArea = Math.max(1, W * H);
-        const name = layer.name.toLowerCase();
-        return (
-          layerArea >= canvasArea * 0.25 ||
-          /background|template|base|front|back|card|cnic|nic|psd|jpg|jpeg|png/.test(name)
-        );
-      };
-      const orderWeight = (layer: Out) => {
-        if (layer.type === "image" && isLargeImageLayer(layer)) return 0;
-        if (layer.type === "image") return 1;
-        return 2;
-      };
-      out.sort((a, b) => orderWeight(a) - orderWeight(b));
 
       // Stage before navigation; IndexedDB fallback survives route reloads / preview refreshes.
       await setStagedPsd({ width: W, height: H, background: bgSrc, layers: out });

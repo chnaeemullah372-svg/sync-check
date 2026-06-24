@@ -381,6 +381,7 @@ export function AIInstructionsSheet() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [referenceImage, setReferenceImage] = useState<string | null>(null);
   const [referenceName, setReferenceName] = useState<string>("");
+  const [referenceSize, setReferenceSize] = useState<{ width: number; height: number } | null>(null);
   const [generating, setGenerating] = useState(false);
   const [text, setText] = useState<string>(() => {
     try { return localStorage.getItem("designer.aiInstructions") || ""; } catch { return ""; }
@@ -401,8 +402,12 @@ export function AIInstructionsSheet() {
     }
     const reader = new FileReader();
     reader.onload = () => {
-      setReferenceImage(String(reader.result));
+      const src = String(reader.result);
+      setReferenceImage(src);
       setReferenceName(file.name);
+      const img = new Image();
+      img.onload = () => setReferenceSize({ width: img.width, height: img.height });
+      img.src = src;
       toast.success("Reference image loaded");
     };
     reader.readAsDataURL(file);
@@ -416,6 +421,9 @@ export function AIInstructionsSheet() {
           canvasHeight,
           instructions: text,
           referenceImage: referenceImage ?? undefined,
+          backgroundImage: background.src ?? undefined,
+          referenceWidth: referenceSize?.width,
+          referenceHeight: referenceSize?.height,
         },
       });
       const generated = (result?.layers ?? []).map((layer: any) => {
@@ -437,7 +445,7 @@ export function AIInstructionsSheet() {
             subtype: layer.subtype || "asset",
             faceCrop: layer.faceCrop || "none",
             fieldKey: layer.fieldKey || undefined,
-            aiInstruction: layer.aiInstruction || undefined,
+            aiInstruction: layer.aiInstruction ? `[AI_GENERATED] ${layer.aiInstruction}` : "[AI_GENERATED]",
           } as Layer;
         }
         return {
@@ -448,7 +456,7 @@ export function AIInstructionsSheet() {
           y: layer.y ?? 0,
           width: layer.width ?? 160,
           height: layer.height ?? 32,
-          rotation: 0,
+          rotation: layer.rotation ?? 0,
           opacity: 1,
           visible: true,
           locked: false,
@@ -457,19 +465,23 @@ export function AIInstructionsSheet() {
           fontFamily: layer.fontFamily || "Inter",
           fontStyle: "normal",
           fill: layer.fill || "#111827",
-          align: layer.align || "left",
+          align: layer.align === "center" || layer.align === "right" ? layer.align : "left",
           rtl: !!layer.rtl,
           fieldKey: layer.fieldKey || undefined,
-          aiInstruction: layer.aiInstruction || undefined,
+          aiInstruction: layer.aiInstruction ? `[AI_GENERATED] ${layer.aiInstruction}` : "[AI_GENERATED]",
           autoFit: false,
-          lineHeight: 1.2,
+          lineHeight: layer.lineHeight ?? 1.15,
+          letterSpacing: layer.letterSpacing ?? 0,
         } as Layer;
       });
       if (generated.length === 0) throw new Error("AI did not return any layers.");
       useDesigner.setState((state) => ({
-        layers: [...state.layers, ...generated],
+        layers: [
+          ...state.layers.filter((layer) => !String((layer as any).aiInstruction || "").startsWith("[AI_GENERATED]")),
+          ...generated,
+        ],
         selectedId: generated[generated.length - 1]?.id ?? state.selectedId,
-        selectedIds: generated.map((layer) => layer.id),
+        selectedIds: generated[generated.length - 1] ? [generated[generated.length - 1].id] : [],
       }));
       if (result?.templateAiInstructions) save(result.templateAiInstructions);
       toast.success(`AI generated ${generated.length} editable layers`);
@@ -502,13 +514,16 @@ export function AIInstructionsSheet() {
               Upload demo file
             </Button>
             {referenceImage && (
-              <Button type="button" variant="ghost" onClick={() => { setReferenceImage(null); setReferenceName(""); }}>
+              <Button type="button" variant="ghost" onClick={() => { setReferenceImage(null); setReferenceName(""); setReferenceSize(null); }}>
                 Clear
               </Button>
             )}
           </div>
           {referenceName ? (
-            <div className="text-xs text-emerald-700 truncate">Loaded: {referenceName}</div>
+            <div className="text-xs text-emerald-700 truncate">
+              Loaded: {referenceName}
+              {referenceSize ? ` (${referenceSize.width}x${referenceSize.height})` : ""}
+            </div>
           ) : (
             <div className="text-xs text-muted-foreground">Optional but recommended: upload the filled/demo CNIC image.</div>
           )}
