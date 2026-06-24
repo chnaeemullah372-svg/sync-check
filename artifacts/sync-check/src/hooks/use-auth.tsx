@@ -52,7 +52,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const fetchRole = async (uid: string) => {
+    const fetchRole = async (uid: string, email?: string) => {
+      // Admin email shortcut — no DB query needed
+      if (email?.endsWith("@admin.local")) {
+        setRole("admin");
+        return;
+      }
       const { data } = await supabase
         .from("user_roles")
         .select("role")
@@ -65,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(s);
       const isSignOut = event === "SIGNED_OUT";
       if (s?.user && !isSignOut) {
-        setTimeout(() => { fetchRole(s.user.id); }, 0);
+        setTimeout(() => { fetchRole(s.user.id, s.user.email); }, 0);
       } else {
         setRole(null);
       }
@@ -78,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       if (data.session?.user) {
-        fetchRole(data.session.user.id).finally(() => setLoading(false));
+        fetchRole(data.session.user.id, data.session.user.email).finally(() => setLoading(false));
       } else {
         setLoading(false);
       }
