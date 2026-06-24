@@ -44,19 +44,27 @@ async function loadProviderKey(
   return process.env[PROVIDER_KEY_NAMES[provider]] ?? null;
 }
 
+async function assertAiAdmin(context: { supabase: any; userId: string }) {
+  const { data, error } = await context.supabase.rpc("has_role", {
+    _user_id: context.userId,
+    _role: "admin",
+  });
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Forbidden: admin only");
+}
+
 /** Public: returns AI mode + user's allowed modes + whether advanced provider key is configured. */
 export const getAiContext = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const [{ data: settings }, { data: access }] = await Promise.all([
-      supabaseAdmin.from("ai_settings").select("mode, provider").eq("id", 1).maybeSingle(),
-      supabaseAdmin.from("user_ai_access").select("access").eq("user_id", context.userId).maybeSingle(),
+      context.supabase.from("ai_settings").select("mode, provider").eq("id", 1).maybeSingle(),
+      context.supabase.from("user_ai_access").select("access").eq("user_id", context.userId).maybeSingle(),
     ]);
     const mode = (settings?.mode ?? "standard") as "disabled" | "standard" | "advanced";
     const provider = (settings?.provider ?? null) as "openai" | "gemini" | "claude" | null;
     const userAccess = (access?.access ?? "standard") as "disabled" | "standard" | "advanced" | "both";
-    const key = await loadProviderKey(provider);
+    const key = await loadProviderKey(provider, context.supabase);
     const advancedConfigured = !!provider && !!key;
     return { mode, provider, userAccess, advancedConfigured };
   });
@@ -65,10 +73,8 @@ export const getAiContext = createServerFn({ method: "GET" })
 export const listProviderKeys = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: isAdmin } = await supabaseAdmin.rpc("has_role", { _user_id: context.userId, _role: "admin" });
-    if (!isAdmin) throw new Error("Forbidden: admin only");
-    const { data } = await supabaseAdmin
+    await assertAiAdmin(context);
+    const { data } = await context.supabase
       .from("ai_provider_keys")
       .select("provider, updated_at");
     const map: Record<string, { configured: boolean; updatedAt?: string }> = {
@@ -98,12 +104,10 @@ export const setProviderKey = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: isAdmin } = await supabaseAdmin.rpc("has_role", { _user_id: context.userId, _role: "admin" });
-    if (!isAdmin) throw new Error("Forbidden: admin only");
+    await assertAiAdmin(context);
     const trimmed = data.apiKey.trim();
     if (trimmed === "") {
-      const { error } = await supabaseAdmin
+      const { error } = await context.supabase
         .from("ai_provider_keys")
         .delete()
         .eq("provider", data.provider);
@@ -111,7 +115,7 @@ export const setProviderKey = createServerFn({ method: "POST" })
       return { ok: true, cleared: true };
     }
     if (trimmed.length < 10) throw new Error("API key looks too short.");
-    const { error } = await supabaseAdmin
+    const { error } = await context.supabase
       .from("ai_provider_keys")
       .upsert({
         provider: data.provider,
@@ -133,14 +137,12 @@ export const setAiSettings = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: isAdmin } = await supabaseAdmin.rpc("has_role", { _user_id: context.userId, _role: "admin" });
-    if (!isAdmin) throw new Error("Forbidden: admin only");
-    const { error } = await supabaseAdmin
+    await assertAiAdmin(context);
+    const { error } = await context.supabase
       .from("ai_settings")
       .upsert({ id: 1, mode: data.mode, provider: data.provider ?? null, updated_at: new Date().toISOString(), updated_by: context.userId });
     if (error) throw new Error(error.message);
-    const key = data.provider ? await loadProviderKey(data.provider) : null;
+    const key = data.provider ? await loadProviderKey(data.provider, context.supabase) : null;
     const providerConfigured = !!key;
     return { ok: true, providerConfigured };
   });
@@ -150,10 +152,8 @@ export const setUserAiAccess = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ userId: z.string().uuid(), access: z.enum(["disabled", "standard", "advanced", "both"]) }))
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: isAdmin } = await supabaseAdmin.rpc("has_role", { _user_id: context.userId, _role: "admin" });
-    if (!isAdmin) throw new Error("Forbidden: admin only");
-    const { error } = await supabaseAdmin
+    await assertAiAdmin(context);
+    const { error } = await context.supabase
       .from("user_ai_access")
       .upsert({ user_id: data.userId, access: data.access, updated_at: new Date().toISOString() });
     if (error) throw new Error(error.message);
@@ -164,10 +164,8 @@ export const setUserAiAccess = createServerFn({ method: "POST" })
 export const listUserAiAccess = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: isAdmin } = await supabaseAdmin.rpc("has_role", { _user_id: context.userId, _role: "admin" });
-    if (!isAdmin) throw new Error("Forbidden: admin only");
-    const { data } = await supabaseAdmin.from("user_ai_access").select("user_id, access");
+    await assertAiAdmin(context);
+    const { data } = await context.supabase.from("user_ai_access").select("user_id, access");
     const map: Record<string, string> = {};
     for (const r of data ?? []) map[r.user_id] = r.access;
     return map;
@@ -177,10 +175,8 @@ export const listUserAiAccess = createServerFn({ method: "GET" })
 export const listAiUsage = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: isAdmin } = await supabaseAdmin.rpc("has_role", { _user_id: context.userId, _role: "admin" });
-    if (!isAdmin) throw new Error("Forbidden: admin only");
-    const { data } = await supabaseAdmin
+    await assertAiAdmin(context);
+    const { data } = await context.supabase
       .from("ai_usage_logs")
       .select("id, user_id, mode, provider, input_type, estimated_tokens, estimated_cost, created_at")
       .order("created_at", { ascending: false })
@@ -480,10 +476,9 @@ export const extractFromImage = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     // ---------- access control ----------
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const [{ data: settings }, { data: access }] = await Promise.all([
-      supabaseAdmin.from("ai_settings").select("mode, provider").eq("id", 1).maybeSingle(),
-      supabaseAdmin.from("user_ai_access").select("access").eq("user_id", context.userId).maybeSingle(),
+      context.supabase.from("ai_settings").select("mode, provider").eq("id", 1).maybeSingle(),
+      context.supabase.from("user_ai_access").select("access").eq("user_id", context.userId).maybeSingle(),
     ]);
     const globalMode = (settings?.mode ?? "standard") as "disabled" | "standard" | "advanced";
     const userAccess = (access?.access ?? "standard") as "disabled" | "standard" | "advanced" | "both";
@@ -594,7 +589,7 @@ export const extractFromImage = createServerFn({ method: "POST" })
     };
 
     const callOpenAI = async () => {
-      const key = await loadProviderKey("openai");
+      const key = await loadProviderKey("openai", context.supabase);
       if (!key) throw new Error("Advanced extraction is not configured.");
       const userParts: any[] = [{ type: "text", text: userPrompt + (data.text ? `\n\nSOURCE:\n${data.text}` : "") }];
       if (data.image) {
@@ -616,7 +611,7 @@ export const extractFromImage = createServerFn({ method: "POST" })
     };
 
     const callGemini = async () => {
-      const key = await loadProviderKey("gemini");
+      const key = await loadProviderKey("gemini", context.supabase);
       if (!key) throw new Error("Advanced extraction is not configured.");
       const parts: any[] = [{ text: `${sys}\n\n${userPrompt}${data.text ? `\n\nSOURCE:\n${data.text}` : ""}` }];
       if (data.image) {
@@ -635,7 +630,7 @@ export const extractFromImage = createServerFn({ method: "POST" })
     };
 
     const callClaude = async () => {
-      const key = await loadProviderKey("claude");
+      const key = await loadProviderKey("claude", context.supabase);
       if (!key) throw new Error("Advanced extraction is not configured.");
       const content: any[] = [{ type: "text", text: userPrompt + (data.text ? `\n\nSOURCE:\n${data.text}` : "") }];
       if (data.image) {
@@ -702,7 +697,7 @@ export const extractFromImage = createServerFn({ method: "POST" })
       const charCount = (data.text?.length ?? 0) + (data.image ? 1500 : 0);
       const tokens = Math.ceil(charCount / 4);
       const cost = usedMode === "advanced" ? tokens * 0.000005 : tokens * 0.000001;
-      await supabaseAdmin.from("ai_usage_logs").insert({
+      await context.supabase.from("ai_usage_logs").insert({
         user_id: context.userId,
         entry_id: data.entryId ?? null,
         template_id: data.templateId ?? null,
