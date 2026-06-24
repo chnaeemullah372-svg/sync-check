@@ -481,7 +481,7 @@ export function AIInstructionsSheet() {
           ...generated,
         ],
         selectedId: generated[generated.length - 1]?.id ?? state.selectedId,
-        selectedIds: generated.map((layer) => layer.id),
+        selectedIds: generated[generated.length - 1] ? [generated[generated.length - 1].id] : [],
       }));
       if (result?.templateAiInstructions) save(result.templateAiInstructions);
       toast.success(`AI generated ${generated.length} editable layers`);

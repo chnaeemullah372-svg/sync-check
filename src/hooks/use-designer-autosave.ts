@@ -61,9 +61,9 @@ export function useDesignerAutosave(opts: { skipHydrate?: boolean } = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [skipHydrate]);
 
-  // subscribe & debounce-save to IndexedDB
+  // Subscribe and write in order. IndexedDB writes can finish out of order for
+  // large PSD payloads, so always serialize writes and repeat with the newest state.
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | null = null;
     let latestPayload: {
       background: unknown;
       canvasWidth: number;
@@ -72,18 +72,25 @@ export function useDesignerAutosave(opts: { skipHydrate?: boolean } = {}) {
       memberNames: Record<number, string>;
       savedAt: number;
     } | null = null;
-    const writeNow = () => {
+    let writeInFlight = false;
+    let writeRequested = false;
+    const writeLatest = async () => {
       if (!latestPayload) return;
-      if (timer) {
-        clearTimeout(timer);
-        timer = null;
+      writeRequested = true;
+      if (writeInFlight) return;
+      writeInFlight = true;
+      try {
+        while (writeRequested && latestPayload) {
+          writeRequested = false;
+          await idbSet(AUTOSAVE_KEY, latestPayload);
+        }
+      } catch (e) {
+        console.warn("Autosave write failed", e);
+      } finally {
+        writeInFlight = false;
       }
-      idbSet(AUTOSAVE_KEY, latestPayload).catch((e) =>
-        console.warn("Autosave write failed", e),
-      );
     };
     const unsub = useDesigner.subscribe((s) => {
-      if (timer) clearTimeout(timer);
       latestPayload = {
         background: s.background,
         canvasWidth: s.canvasWidth,
@@ -92,20 +99,19 @@ export function useDesignerAutosave(opts: { skipHydrate?: boolean } = {}) {
         memberNames: s.memberNames,
         savedAt: Date.now(),
       };
-      timer = setTimeout(() => {
-        writeNow();
-      }, 150);
+      void writeLatest();
     });
     const onPageHidden = () => {
-      if (document.visibilityState === "hidden") writeNow();
+      if (document.visibilityState === "hidden") void writeLatest();
     };
-    window.addEventListener("pagehide", writeNow);
-    window.addEventListener("beforeunload", writeNow);
+    const onPageExit = () => void writeLatest();
+    window.addEventListener("pagehide", onPageExit);
+    window.addEventListener("beforeunload", onPageExit);
     document.addEventListener("visibilitychange", onPageHidden);
     return () => {
-      writeNow();
-      window.removeEventListener("pagehide", writeNow);
-      window.removeEventListener("beforeunload", writeNow);
+      void writeLatest();
+      window.removeEventListener("pagehide", onPageExit);
+      window.removeEventListener("beforeunload", onPageExit);
       document.removeEventListener("visibilitychange", onPageHidden);
       unsub();
     };
