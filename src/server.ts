@@ -9,6 +9,7 @@ type ServerEntry = {
 
 const DEFAULT_PUBLIC_HOSTS = ["punjab-case-management.live", "www.punjab-case-management.live"];
 const DEFAULT_ADMIN_HOSTS = ["admin.punjab-case-management.live"];
+const DEPLOYMENT_MARKER = "24JUN-004";
 
 let serverEntryPromise: Promise<ServerEntry> | undefined;
 
@@ -97,21 +98,37 @@ function domainGate(request: Request, env: unknown) {
   return undefined;
 }
 
+function withDeploymentHeaders(request: Request, response: Response) {
+  const url = new URL(request.url);
+  const headers = new Headers(response.headers);
+  headers.set("X-PCM-Build", DEPLOYMENT_MARKER);
+  if (!url.pathname.startsWith("/assets/")) {
+    headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    headers.set("Pragma", "no-cache");
+    headers.set("Expires", "0");
+  }
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const gated = domainGate(request, env);
-      if (gated) return gated;
+      if (gated) return withDeploymentHeaders(request, gated);
 
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      return withDeploymentHeaders(request, await normalizeCatastrophicSsrResponse(response));
     } catch (error) {
       console.error(error);
-      return new Response(renderErrorPage(), {
+      return withDeploymentHeaders(request, new Response(renderErrorPage(), {
         status: 500,
         headers: { "content-type": "text/html; charset=utf-8" },
-      });
+      }));
     }
   },
 };
