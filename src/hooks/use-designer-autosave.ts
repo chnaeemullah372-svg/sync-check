@@ -64,24 +64,49 @@ export function useDesignerAutosave(opts: { skipHydrate?: boolean } = {}) {
   // subscribe & debounce-save to IndexedDB
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let latestPayload: {
+      background: unknown;
+      canvasWidth: number;
+      canvasHeight: number;
+      layers: unknown[];
+      memberNames: Record<number, string>;
+      savedAt: number;
+    } | null = null;
+    const writeNow = () => {
+      if (!latestPayload) return;
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      idbSet(AUTOSAVE_KEY, latestPayload).catch((e) =>
+        console.warn("Autosave write failed", e),
+      );
+    };
     const unsub = useDesigner.subscribe((s) => {
       if (timer) clearTimeout(timer);
+      latestPayload = {
+        background: s.background,
+        canvasWidth: s.canvasWidth,
+        canvasHeight: s.canvasHeight,
+        layers: s.layers,
+        memberNames: s.memberNames,
+        savedAt: Date.now(),
+      };
       timer = setTimeout(() => {
-        const payload = {
-          background: s.background,
-          canvasWidth: s.canvasWidth,
-          canvasHeight: s.canvasHeight,
-          layers: s.layers,
-          memberNames: s.memberNames,
-          savedAt: Date.now(),
-        };
-        idbSet(AUTOSAVE_KEY, payload).catch((e) =>
-          console.warn("Autosave write failed", e),
-        );
-      }, 400);
+        writeNow();
+      }, 150);
     });
+    const onPageHidden = () => {
+      if (document.visibilityState === "hidden") writeNow();
+    };
+    window.addEventListener("pagehide", writeNow);
+    window.addEventListener("beforeunload", writeNow);
+    document.addEventListener("visibilitychange", onPageHidden);
     return () => {
-      if (timer) clearTimeout(timer);
+      writeNow();
+      window.removeEventListener("pagehide", writeNow);
+      window.removeEventListener("beforeunload", writeNow);
+      document.removeEventListener("visibilitychange", onPageHidden);
       unsub();
     };
   }, []);

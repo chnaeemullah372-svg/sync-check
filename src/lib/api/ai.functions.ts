@@ -391,6 +391,8 @@ export const generateTemplateLayers = createServerFn({ method: "POST" })
       instructions: z.string().max(8000).optional(),
       referenceImage: z.string().max(8_000_000).optional(),
       backgroundImage: z.string().max(8_000_000).optional(),
+      referenceWidth: z.number().int().positive().max(20000).optional(),
+      referenceHeight: z.number().int().positive().max(20000).optional(),
     }),
   )
   .handler(async ({ data, context }) => {
@@ -416,6 +418,8 @@ Images:
 - IMAGE A is the blank/background canvas already placed in the editor.
 - IMAGE B is the completed/demo reference image.
 - Your job is to reconstruct editable placeholders/text layers on IMAGE A so that, after user data is filled, it matches IMAGE B.
+- IMAGE B source size: ${data.referenceWidth && data.referenceHeight ? `${data.referenceWidth}x${data.referenceHeight}px` : "unknown"}.
+- If IMAGE B size differs from canvas, scale coordinates to the ${data.canvasWidth}x${data.canvasHeight}px canvas before returning JSON.
 
 Admin command:
 ${data.instructions?.trim() || "Create editable CNIC/NADRA text and image layers matching the reference."}
