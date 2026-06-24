@@ -1,0 +1,122 @@
+{
+  "templates": [
+    {
+      "id": "aaaaaaaa-0001-4000-a000-000000000001",
+      "name": "NIC Card Front (psd3)",
+      "page_size": "custom",
+      "width": 1012,
+      "height": 638,
+      "background_url": null,
+      "category": "nic-front",
+      "ai_instructions": "Pakistan NIC Front – bilingual. Fields: name_en, name_ur (RTL), father_en, father_ur (RTL), gender, country_of_stay, identity_number (13-digit), date_of_birth, date_of_issue, date_of_expiry. Photo placeholder top-right. Signature bottom-left.",
+      "members_per_page": 1,
+      "status": "active",
+      "created_by": "system",
+      "created_at": "2026-01-01T00:00:00.000Z",
+      "updated_at": "2026-01-01T00:00:00.000Z",
+      "archived_at": null
+    },
+    {
+      "id": "aaaaaaaa-0002-4000-a000-000000000002",
+      "name": "NIC Card Back (psd3)",
+      "page_size": "custom",
+      "width": 1012,
+      "height": 638,
+      "background_url": null,
+      "category": "nic-back",
+      "ai_instructions": "Pakistan NIC Back – bilingual. Fields: address_en, address_ur (RTL). Thumb placeholder left side.",
+      "members_per_page": 1,
+      "status": "active",
+      "created_by": "system",
+      "created_at": "2026-01-01T00:00:01.000Z",
+      "updated_at": "2026-01-01T00:00:01.000Z",
+      "archived_at": null
+    },
+    {
+      "id": "aaaaaaaa-0003-4000-a000-000000000003",
+      "name": "CNIC Front (ops2)",
+      "page_size": "custom",
+      "width": 1012,
+      "height": 638,
+      "background_url": null,
+      "category": "cnic-front",
+      "ai_instructions": "Old CNIC Front – Urdu primary (Jameel Noori Nastaleeq). Fields: name_ur (RTL), father_ur (RTL), identity_number, date_of_birth, date_of_issue, date_of_expiry. Photo right side.",
+      "members_per_page": 1,
+      "status": "active",
+      "created_by": "system",
+      "created_at": "2026-01-01T00:00:02.000Z",
+      "updated_at": "2026-01-01T00:00:02.000Z",
+      "archived_at": null
+    },
+    {
+      "id": "aaaaaaaa-0004-4000-a000-000000000004",
+      "name": "CNIC Back (ops2)",
+      "page_size": "custom",
+      "width": 1012,
+      "height": 638,
+      "background_url": null,
+      "category": "cnic-back",
+      "ai_instructions": "Old CNIC Back – Urdu primary. Fields: address_ur (RTL). Thumb impression placeholder.",
+      "members_per_page": 1,
+      "status": "active",
+      "created_by": "system",
+      "created_at": "2026-01-01T00:00:03.000Z",
+      "updated_at": "2026-01-01T00:00:03.000Z",
+      "archived_at": null
+    }
+  ],
+  "template_objects": [
+    {
+      "id": "bbbbbbbb-0001-4000-b000-000000000001",
+      "template_id": "aaaaaaaa-0001-4000-a000-000000000001",
+      "objects": {
+        "background": null,
+        "canvasWidth": 1012,
+        "canvasHeight": 638,
+        "layers": [],
+        "memberNames": {}
+      },
+      "version": 1,
+      "updated_at": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "bbbbbbbb-0002-4000-b000-000000000002",
+      "template_id": "aaaaaaaa-0002-4000-a000-000000000002",
+      "objects": {
+        "background": null,
+        "canvasWidth": 1012,
+        "canvasHeight": 638,
+        "layers": [],
+        "memberNames": {}
+      },
+      "version": 1,
+      "updated_at": "2026-01-01T00:00:01.000Z"
+    },
+    {
+      "id": "bbbbbbbb-0003-4000-b000-000000000003",
+      "template_id": "aaaaaaaa-0003-4000-a000-000000000003",
+      "objects": {
+        "background": null,
+        "canvasWidth": 1012,
+        "canvasHeight": 638,
+        "layers": [],
+        "memberNames": {}
+      },
+      "version": 1,
+      "updated_at": "2026-01-01T00:00:02.000Z"
+    },
+    {
+      "id": "bbbbbbbb-0004-4000-b000-000000000004",
+      "template_id": "aaaaaaaa-0004-4000-a000-000000000004",
+      "objects": {
+        "background": null,
+        "canvasWidth": 1012,
+        "canvasHeight": 638,
+        "layers": [],
+        "memberNames": {}
+      },
+      "version": 1,
+      "updated_at": "2026-01-01T00:00:03.000Z"
+    }
+  ]
+}

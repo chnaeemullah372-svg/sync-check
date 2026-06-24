@@ -364,14 +364,14 @@ function OverviewTab({ onGo }: { onGo: (t: Tab) => void }) {
   const { data: templates } = useQuery({
     queryKey: ["admin-templates"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("templates")
-        .select("id, archived_at")
-        .order("updated_at", { ascending: false });
-      if (error?.code === "PGRST205" || error?.message?.includes("does not exist")) {
-        return await listLocalFn();
-      }
-      return data ?? [];
+      const [sbRes, localRes] = await Promise.allSettled([
+        supabase.from("templates").select("id, archived_at").order("updated_at", { ascending: false }),
+        listLocalFn(),
+      ]);
+      const sbData = sbRes.status === "fulfilled" ? (sbRes.value.data ?? []) : [];
+      const localData = localRes.status === "fulfilled" ? localRes.value : [];
+      const sbIds = new Set(sbData.map((t) => t.id));
+      return [...sbData, ...localData.filter((t) => !sbIds.has(t.id))];
     },
   });
 
@@ -493,14 +493,17 @@ function TemplatesTab({ archivedView }: { archivedView: boolean }) {
   const { data: templates, isLoading } = useQuery({
     queryKey: ["admin-templates"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("templates")
-        .select("id, name, category, status, archived_at, width, height, updated_at")
-        .order("updated_at", { ascending: false });
-      if (error?.code === "PGRST205" || error?.message?.includes("does not exist")) {
-        return await listLocalFn();
-      }
-      return data ?? [];
+      const [sbRes, localRes] = await Promise.allSettled([
+        supabase
+          .from("templates")
+          .select("id, name, category, status, archived_at, width, height, updated_at")
+          .order("updated_at", { ascending: false }),
+        listLocalFn(),
+      ]);
+      const sbData = sbRes.status === "fulfilled" ? (sbRes.value.data ?? []) : [];
+      const localData = localRes.status === "fulfilled" ? localRes.value : [];
+      const sbIds = new Set(sbData.map((t) => t.id));
+      return [...sbData, ...localData.filter((t) => !sbIds.has(t.id))];
     },
   });
 

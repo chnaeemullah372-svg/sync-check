@@ -215,11 +215,9 @@ export const duplicateTemplateFn = createServerFn({ method: "POST" })
     }
   });
 
-/** List templates from local file store (fallback when Supabase tables don't exist). */
+/** List templates from local file store. No auth required — local files are not user data. */
 export const listLocalTemplatesFn = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    await assertAdmin(context.userId, (context.claims as Record<string, unknown>)?.email as string | undefined);
+  .handler(async () => {
     const { localListTemplates } = await import("@/lib/local-db.server");
     return localListTemplates();
   });
