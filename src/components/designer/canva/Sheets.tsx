@@ -1,8 +1,10 @@
 import { useRef, useState, useSyncExternalStore } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { CanvaSheet } from "./Sheet";
 import { useDock } from "./dockState";
 import { useDesigner, makeId } from "@/lib/designer/store";
-import type { TextLayer } from "@/lib/designer/types";
+import type { Layer, TextLayer } from "@/lib/designer/types";
+import { generateTemplateLayers } from "@/lib/api/ai.functions";
 
 import { FONT_LIBRARY, FONT_CATEGORIES, DEFAULT_COLORS } from "@/lib/designer/fonts";
 import {
@@ -374,6 +376,12 @@ export function AIFieldSheet() {
 
 export function AIInstructionsSheet() {
   const { openSheet, setOpenSheet } = useDock();
+  const { background, canvasWidth, canvasHeight } = useDesigner();
+  const generateLayersFn = useServerFn(generateTemplateLayers);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [referenceImage, setReferenceImage] = useState<string | null>(null);
+  const [referenceName, setReferenceName] = useState<string>("");
+  const [generating, setGenerating] = useState(false);
   const [text, setText] = useState<string>(() => {
     try { return localStorage.getItem("designer.aiInstructions") || ""; } catch { return ""; }
   });
@@ -381,15 +389,137 @@ export function AIInstructionsSheet() {
     setText(v);
     try { localStorage.setItem("designer.aiInstructions", v); } catch { /* ignore */ }
   };
+  const readReferenceFile = (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload a JPG/PNG/WebP reference image.");
+      return;
+    }
+    if (file.size > 7_500_000) {
+      toast.error("Reference image is too large. Use an image under 7.5MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setReferenceImage(String(reader.result));
+      setReferenceName(file.name);
+      toast.success("Reference image loaded");
+    };
+    reader.readAsDataURL(file);
+  };
+  const applyGeneratedLayers = async () => {
+    try {
+      setGenerating(true);
+      const result = await generateLayersFn({
+        data: {
+          canvasWidth,
+          canvasHeight,
+          instructions: text,
+          referenceImage: referenceImage ?? undefined,
+        },
+      });
+      const generated = (result?.layers ?? []).map((layer: any) => {
+        if (layer.type === "image") {
+          return {
+            id: makeId(),
+            name: layer.name || "Image",
+            type: "image",
+            x: layer.x ?? 0,
+            y: layer.y ?? 0,
+            width: layer.width ?? 120,
+            height: layer.height ?? 120,
+            rotation: 0,
+            opacity: 1,
+            visible: true,
+            locked: false,
+            src: null,
+            fit: layer.fit || "crop",
+            subtype: layer.subtype || "asset",
+            faceCrop: layer.faceCrop || "none",
+            fieldKey: layer.fieldKey || undefined,
+            aiInstruction: layer.aiInstruction || undefined,
+          } as Layer;
+        }
+        return {
+          id: makeId(),
+          name: layer.name || "Text",
+          type: "text",
+          x: layer.x ?? 0,
+          y: layer.y ?? 0,
+          width: layer.width ?? 160,
+          height: layer.height ?? 32,
+          rotation: 0,
+          opacity: 1,
+          visible: true,
+          locked: false,
+          text: layer.text || layer.name || "Text",
+          fontSize: layer.fontSize || 18,
+          fontFamily: layer.fontFamily || "Inter",
+          fontStyle: "normal",
+          fill: layer.fill || "#111827",
+          align: layer.align || "left",
+          rtl: !!layer.rtl,
+          fieldKey: layer.fieldKey || undefined,
+          aiInstruction: layer.aiInstruction || undefined,
+          autoFit: false,
+          lineHeight: 1.2,
+        } as Layer;
+      });
+      if (generated.length === 0) throw new Error("AI did not return any layers.");
+      useDesigner.setState((state) => ({
+        layers: [...state.layers, ...generated],
+        selectedId: generated[generated.length - 1]?.id ?? state.selectedId,
+        selectedIds: generated.map((layer) => layer.id),
+      }));
+      if (result?.templateAiInstructions) save(result.templateAiInstructions);
+      toast.success(`AI generated ${generated.length} editable layers`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "AI layer generation failed");
+    } finally {
+      setGenerating(false);
+    }
+  };
   return (
-    <CanvaSheet open={openSheet === "aiInstructions"} onClose={() => setOpenSheet(null)} title="AI Template Instructions" height="65vh">
+    <CanvaSheet open={openSheet === "aiInstructions"} onClose={() => setOpenSheet(null)} title="AI Template Builder" height="78vh">
       <div className="p-4 space-y-3">
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          className="hidden"
+          onChange={(event) => {
+            readReferenceFile(event.target.files?.[0]);
+            event.currentTarget.value = "";
+          }}
+        />
         <div className="text-xs text-muted-foreground">
-          Tell the AI exactly how to fill this template on the user side. Per-layer instructions override these rules.
+          Upload a blank/background first, then add a demo/reference image and command. AI will create editable named layers with field keys.
+        </div>
+        <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+          <div className="text-[11px] font-bold uppercase text-muted-foreground">Reference / demo image</div>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={() => fileRef.current?.click()} className="flex-1">
+              Upload demo file
+            </Button>
+            {referenceImage && (
+              <Button type="button" variant="ghost" onClick={() => { setReferenceImage(null); setReferenceName(""); }}>
+                Clear
+              </Button>
+            )}
+          </div>
+          {referenceName ? (
+            <div className="text-xs text-emerald-700 truncate">Loaded: {referenceName}</div>
+          ) : (
+            <div className="text-xs text-muted-foreground">Optional but recommended: upload the filled/demo CNIC image.</div>
+          )}
         </div>
         <Textarea
           value={text} onChange={(e) => save(e.target.value)} rows={14} dir="auto"
           placeholder={`Examples:
+- Use the uploaded demo image as reference and create editable CNIC layers.
+- Keep all Urdu fields in Jameel Noori Nastaleeq and RTL.
+- Name layers: Name Urdu, CNIC Number, Father/Husband, DOB, DOI, Address, Photo, Thumb.
+- Set field keys so user-side one-click fill works.
 - Name: write in Urdu in "Name", English transliteration in "Name (EN)".
 - Photo: passport-size, face centered, white background.
 - Address1 = current address, Address2 = permanent address.
@@ -398,8 +528,20 @@ export function AIInstructionsSheet() {
         />
         <div className="flex gap-2 justify-end">
           <Button variant="ghost" onClick={() => save("")}>Clear</Button>
+          <Button
+            variant="outline"
+            disabled={generating || !background.src}
+            onClick={() => void applyGeneratedLayers()}
+          >
+            {generating ? "Generating…" : "Generate Layers"}
+          </Button>
           <Button onClick={() => { setOpenSheet(null); toast.success("Instructions saved"); }}>Done</Button>
         </div>
+        {!background.src && (
+          <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2">
+            Upload a blank/template background first, then run AI Generate Layers.
+          </div>
+        )}
       </div>
     </CanvaSheet>
   );

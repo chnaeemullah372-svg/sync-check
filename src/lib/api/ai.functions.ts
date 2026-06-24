@@ -177,6 +177,111 @@ export const listAiUsage = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
+const GeneratedLayer = z.object({
+  name: z.string(),
+  type: z.enum(["text", "image"]),
+  x: z.number(),
+  y: z.number(),
+  width: z.number(),
+  height: z.number(),
+  text: z.string().optional(),
+  fontSize: z.number().optional(),
+  fontFamily: z.string().optional(),
+  fill: z.string().optional(),
+  align: z.enum(["left", "center", "right"]).optional(),
+  rtl: z.boolean().optional(),
+  fieldKey: z.string().optional(),
+  aiInstruction: z.string().optional(),
+  subtype: z.string().optional(),
+  fit: z.string().optional(),
+  faceCrop: z.string().optional(),
+});
+
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function rect(width: number, height: number, x: number, y: number, w: number, h: number) {
+  return {
+    x: Math.round(clamp(x * width, 0, width - 4)),
+    y: Math.round(clamp(y * height, 0, height - 4)),
+    width: Math.round(clamp(w * width, 8, width)),
+    height: Math.round(clamp(h * height, 8, height)),
+  };
+}
+
+function cnicLayout(width: number, height: number) {
+  const text = (name: string, fieldKey: string, r: ReturnType<typeof rect>, sample: string, opts: Partial<z.infer<typeof GeneratedLayer>> = {}) => ({
+    name,
+    type: "text" as const,
+    ...r,
+    text: sample,
+    fontSize: opts.fontSize ?? Math.max(12, Math.round(height * 0.018)),
+    fontFamily: opts.fontFamily ?? (opts.rtl ? "Jameel Noori Nastaleeq" : "Roboto Condensed"),
+    fill: "#111111",
+    align: opts.align ?? (opts.rtl ? "right" as const : "left" as const),
+    rtl: !!opts.rtl,
+    fieldKey,
+    aiInstruction: opts.aiInstruction ?? `Fill ${name} from user data. Keep the same language and format.`,
+  });
+  const image = (name: string, fieldKey: string, r: ReturnType<typeof rect>, subtype = "photo") => ({
+    name,
+    type: "image" as const,
+    ...r,
+    src: null,
+    fit: "crop",
+    subtype,
+    faceCrop: subtype === "photo" ? "passport" : "none",
+    fieldKey,
+    aiInstruction: subtype === "photo" ? "Passport-size face centered." : "Use matching uploaded image.",
+  });
+
+  return [
+    image("Photo", "photo", rect(width, height, 0.095, 0.14, 0.18, 0.17), "photo"),
+    image("Thumb", "thumb", rect(width, height, 0.11, 0.34, 0.15, 0.08), "thumb"),
+    text("Name Urdu", "name", rect(width, height, 0.53, 0.14, 0.24, 0.04), "نام", { rtl: true, fontSize: Math.round(height * 0.022) }),
+    text("Father/Husband Urdu", "father_name", rect(width, height, 0.49, 0.25, 0.28, 0.04), "والد/شوہر", { rtl: true, fontSize: Math.round(height * 0.02) }),
+    text("CNIC Number", "cnic", rect(width, height, 0.35, 0.20, 0.27, 0.04), "35201-1234567-8", { fontSize: Math.round(height * 0.019), fontFamily: "Roboto Condensed" }),
+    text("Gender", "custom_1", rect(width, height, 0.30, 0.31, 0.08, 0.035), "M", { fontSize: Math.round(height * 0.016), fontFamily: "Roboto Condensed" }),
+    text("Date of Birth", "dob", rect(width, height, 0.52, 0.36, 0.15, 0.035), "01/01/2000", { fontSize: Math.round(height * 0.016), fontFamily: "Roboto Condensed" }),
+    text("Date of Issue", "doi", rect(width, height, 0.30, 0.42, 0.15, 0.035), "01/01/2020", { fontSize: Math.round(height * 0.016), fontFamily: "Roboto Condensed" }),
+    text("Date of Expiry", "custom_2", rect(width, height, 0.53, 0.42, 0.15, 0.035), "01/01/2030", { fontSize: Math.round(height * 0.016), fontFamily: "Roboto Condensed" }),
+    text("Back CNIC Number", "cnic", rect(width, height, 0.64, 0.56, 0.28, 0.035), "35201-1234567-8", { fontSize: Math.round(height * 0.016), fontFamily: "Roboto Condensed" }),
+    text("Family Number", "custom_3", rect(width, height, 0.31, 0.56, 0.16, 0.035), "Q340ZP", { fontSize: Math.round(height * 0.016), fontFamily: "Roboto Condensed" }),
+    text("Current Address", "address", rect(width, height, 0.34, 0.62, 0.48, 0.06), "موجودہ پتہ", { rtl: true, fontSize: Math.round(height * 0.018) }),
+    text("Permanent Address", "address", rect(width, height, 0.34, 0.73, 0.48, 0.06), "مستقل پتہ", { rtl: true, fontSize: Math.round(height * 0.018) }),
+    text("Footer Urdu", "relation", rect(width, height, 0.25, 0.84, 0.55, 0.05), "گمشدہ کارڈ ملنے پر قریبی لیٹر بکس میں ڈال دیں", { rtl: true, fontSize: Math.round(height * 0.024) }),
+  ];
+}
+
+export const generateTemplateLayers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      canvasWidth: z.number().int().positive().max(20000),
+      canvasHeight: z.number().int().positive().max(20000),
+      instructions: z.string().max(8000).optional(),
+      referenceImage: z.string().max(8_000_000).optional(),
+    }),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: isAdmin, error } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "admin",
+    });
+    if (error) throw new Error(error.message);
+    if (!isAdmin) throw new Error("Forbidden: admin only");
+
+    const layers = cnicLayout(data.canvasWidth, data.canvasHeight).map((layer) => GeneratedLayer.parse(layer));
+    return {
+      layers,
+      templateAiInstructions:
+        data.instructions?.trim() ||
+        "Fill CNIC/NADRA fields using layer field keys. Keep Urdu fields in Urdu script and dates in DD/MM/YYYY format.",
+      source: data.referenceImage ? "reference-image+command" : "command",
+    };
+  });
+
 /**
  * Extract structured fields from text or image. Honors per-user access + global mode.
  * `mode: 'advanced'` routes to the admin-configured provider (OpenAI/Gemini/Claude)
