@@ -30,3 +30,18 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Media files — never push to git
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+*.wmv
+*.flv
+*.m4v
+attached_assets/*.mp4
+attached_assets/*.mov
+attached_assets/*.avi
+attached_assets/*.mkv
+attached_assets/*.webm
