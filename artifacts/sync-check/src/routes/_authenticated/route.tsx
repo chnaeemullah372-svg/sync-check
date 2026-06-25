@@ -21,8 +21,10 @@ function getLocalAdminSession() {
 }
 
 export const Route = createFileRoute("/_authenticated")({
-  ssr: false,
-  beforeLoad: async () => {
+  beforeLoad: async ({ context }) => {
+    // During SSR there is no localStorage / browser session — always redirect
+    // to /auth and let the client-side auth effect handle the actual navigation.
+    if (typeof window === "undefined") throw redirect({ to: "/auth" });
     const localAdmin = getLocalAdminSession();
     if (localAdmin) {
       return { user: { id: "local-admin", email: localAdmin.email } };

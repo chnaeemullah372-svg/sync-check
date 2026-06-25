@@ -1,3 +1,5 @@
 - [sync-check artifact (TanStack Start)](sync-check-artifact.md) — external app runs as a Node-SSR artifact; nitro node-server, manual host/port, @tanstack/query-core direct dep.
 - [Local admin auth flow](local-admin-auth.md) — naeem login creates real Supabase user + JWT; cookie `sb-local-admin-token` bridges JWT to server-fn HTTP calls; assertAdmin allows @admin.local emails.
 - [Template local file store](template-local-store.md) — when Supabase tables missing (PGRST205), all template CRUD falls back to `.local-db/templates.json`; 4 NRC templates auto-seeded on first read.
+- [PSD text scaling fix](psd-text-scaling.md) — layer.width/height from PSD are already visual (post-transform) bounds; never multiply by scaleXText/Y in Canvas.tsx or PreviewCanvas.tsx — that causes compound scaling on every resize.
+- [SSR hydration fix](ssr-hydration-fix.md) — _authenticated/route.tsx must NOT use ssr:false; use explicit typeof window check in beforeLoad instead so server always renders /auth consistently.

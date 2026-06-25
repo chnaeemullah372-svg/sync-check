@@ -290,10 +290,9 @@ export function PreviewCanvas({
                 const sy = node.scaleY();
                 node.scaleX(1);
                 node.scaleY(1);
-                const textScaleX = layer.type === "text" ? ((layer as TextLayer).scaleXText ?? 1) : 1;
-                const textScaleY = layer.type === "text" ? ((layer as TextLayer).scaleYText ?? 1) : 1;
-                const newW = Math.max(8, ((layer as any).width * sx) / textScaleX);
-                const newH = Math.max(8, ((layer as any).height * sy) / textScaleY);
+                // layer.width/height are already visual (post-transform) bounds — no scale division needed.
+                const newW = Math.max(8, (layer as any).width * Math.abs(sx));
+                const newH = Math.max(8, (layer as any).height * Math.abs(sy));
                 const upd: LayerOverlay = {
                   x: node.x(),
                   y: node.y(),
@@ -302,7 +301,7 @@ export function PreviewCanvas({
                   rotation: node.rotation(),
                 };
                 if (layer.type === "text" && (layer as TextLayer).autoFit !== false) {
-                  upd.fontSize = Math.max(6, (layer as TextLayer).fontSize * ((sx + sy) / 2));
+                  upd.fontSize = Math.max(6, (layer as TextLayer).fontSize * ((Math.abs(sx) + Math.abs(sy)) / 2));
                 }
                 commit(layer.id, upd);
               },
@@ -332,8 +331,6 @@ export function PreviewCanvas({
                   fontStyle={t.fontStyle}
                   lineHeight={t.lineHeight ?? 1.2}
                   letterSpacing={t.letterSpacing ?? 0}
-                  scaleX={t.scaleXText ?? 1}
-                  scaleY={t.scaleYText ?? 1}
                   fill={t.fill}
                   align={t.align}
                   verticalAlign="top"

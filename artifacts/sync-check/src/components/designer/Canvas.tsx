@@ -108,16 +108,13 @@ function TextNode({ layer, onSelect, onChange, onDragEnd, onDblClick, nodeRef, g
   const ref = useRef<Konva.Text>(null);
   useEffect(() => { nodeRef(ref.current); return () => nodeRef(null); }, [nodeRef]);
   const renderedFontSize = fitTextFontSize(layer);
-  // Bake PSD scale into rendered dimensions — keep scaleX/Y at 1 so Transformer math is simple.
-  const isPsdScaled = layer.autoFit === false || !!layer.originalFontFamily || !!layer.missingFont || !!layer.fontMissing;
-  const textScaleX = isPsdScaled ? Math.max(0.1, layer.scaleXText ?? 1) : 1;
-  const textScaleY = isPsdScaled ? Math.max(0.1, layer.scaleYText ?? 1) : 1;
-  const renderWidth  = Math.max(1, layer.width  * textScaleX);
-  const renderHeight = Math.max(1, layer.height * textScaleY);
+  // layer.width/height are already the visual (post-transform) bounds from the PSD.
+  // Never apply scaleX/Y on the Konva node — that causes compound scaling on every resize.
   return (
     <Text
       ref={ref}
-      text={layer.text} x={layer.x} y={layer.y} width={renderWidth} height={renderHeight}
+      text={layer.text} x={layer.x} y={layer.y}
+      width={Math.max(1, layer.width)} height={Math.max(1, layer.height)}
       fontSize={renderedFontSize} fontFamily={layer.fontFamily} fontStyle={layer.fontStyle}
       fill={layer.fill} align={layer.align} rotation={layer.rotation}
       lineHeight={layer.lineHeight ?? 1.2} letterSpacing={layer.letterSpacing ?? 0}
@@ -130,21 +127,19 @@ function TextNode({ layer, onSelect, onChange, onDragEnd, onDblClick, nodeRef, g
       onDragEnd={(e) => onDragEnd(e.target.x(), e.target.y())}
       onTransformEnd={() => {
         const node = ref.current; if (!node) return;
-        // scaleX/Y is always 1 on the node, so sx/sy is the pure user-drag factor.
         const sx = node.scaleX(), sy = node.scaleY();
         node.scaleX(1); node.scaleY(1);
         const anchor = getActiveAnchor?.() ?? "";
         const isCorner =
           (anchor.startsWith("top") || anchor.startsWith("bottom")) &&
           (anchor.endsWith("left") || anchor.endsWith("right"));
-        // Store back in logical (pre-scale) space so subsequent renders are consistent.
         const next: Partial<TextLayer> = {
           x: node.x(), y: node.y(),
-          width:  Math.max(20, (renderWidth  * Math.abs(sx)) / textScaleX),
-          height: Math.max(10, (renderHeight * Math.abs(sy)) / textScaleY),
+          width:  Math.max(20, layer.width  * Math.abs(sx)),
+          height: Math.max(10, layer.height * Math.abs(sy)),
           rotation: node.rotation(),
         };
-        if (isCorner && !isPsdScaled) {
+        if (isCorner) {
           next.fontSize = Math.max(6, Math.round(renderedFontSize * (Math.abs(sy) || Math.abs(sx) || 1)));
         }
         onChange(next);
