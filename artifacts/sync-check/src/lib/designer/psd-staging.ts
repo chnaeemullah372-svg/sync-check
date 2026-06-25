@@ -61,6 +61,8 @@ export async function consumeStagedPsd(): Promise<StagedPsd | null> {
         layers: persisted.layers,
       };
       lastConsumed = { payload, at: Date.now() };
+      // Delete after consuming so stale data never contaminates the next import.
+      void del(PERSIST_KEY);
       return payload;
     }
     if (persisted) void del(PERSIST_KEY);

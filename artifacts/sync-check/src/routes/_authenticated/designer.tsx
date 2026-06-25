@@ -2,11 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense, useRef, useState, useEffect } from "react";
 import { z } from "zod";
 import type Konva from "konva";
-import { consumeStagedPsd } from "@/lib/designer/psd-staging";
+import { consumeStagedPsd, clearStagedPsd } from "@/lib/designer/psd-staging";
 import { consumeStagedBlank } from "@/lib/designer/blank-staging";
 import { A4_PORTRAIT, useDesigner, makeId } from "@/lib/designer/store";
 import type { Layer } from "@/lib/designer/types";
-import { getDesignerAutosaveSnapshot, useDesignerAutosave } from "@/hooks/use-designer-autosave";
+import { getDesignerAutosaveSnapshot, useDesignerAutosave, clearDesignerAutosave } from "@/hooks/use-designer-autosave";
 import { useServerFn } from "@tanstack/react-start";
 import { loadTemplate } from "@/lib/api/templates.functions";
 import { toast } from "sonner";
@@ -448,10 +448,21 @@ function DesignerPage() {
     } else if (mode === "psd") {
       void (async () => {
       try {
+        // Wipe store + autosave BEFORE reading staged PSD so stale layers
+        // from a previous session can never bleed onto the new import.
+        st.loadState({
+          background: { src: null, width: A4_PORTRAIT.w, height: A4_PORTRAIT.h },
+          canvasWidth: A4_PORTRAIT.w,
+          canvasHeight: A4_PORTRAIT.h,
+          layers: [],
+          memberNames: {},
+        });
+        clearDesignerAutosave();
         const p = await consumeStagedPsd();
         if (!p) {
-          const restored = await restoreAutosave();
-          if (!restored) toast.error("PSD data not found");
+          // Nothing staged and autosave was just cleared — nothing to restore.
+          clearStagedPsd();
+          toast.error("PSD data not found — please re-upload the file.");
           return;
         }
         const importedLayers = (p.layers || []) as ImportedPsdLayer[];
