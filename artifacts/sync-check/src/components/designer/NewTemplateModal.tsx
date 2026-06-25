@@ -652,25 +652,11 @@ export function NewTemplateModal({ open, onOpenChange }: Props) {
             });
             continue;
           }
-          if (!n.canvas) continue;
-          try {
-            const lc = n.canvas as HTMLCanvasElement;
-            const useJpeg = lc.width * lc.height > 800_000;
-            const src = useJpeg ? lc.toDataURL("image/jpeg", 0.85) : lc.toDataURL("image/png");
-            out.push({
-              id: crypto.randomUUID(),
-              name: n.name || "Layer",
-              type: "image",
-              x: left,
-              y: top,
-              width: w,
-              height: h,
-              opacity: getPsdOpacity(n),
-              src,
-            });
-          } catch {
-            /* ignore */
-          }
+          // Non-text raster layers are already baked into the PSD composite background.
+          // Adding them again as individual image layers would cause visual doubling
+          // (each element appears once in the background + once as an editable layer).
+          // Skip them; users add image placeholder slots manually in the designer.
+          continue;
         }
       };
       walk(psd.children as unknown as PsdNode[] | undefined);
