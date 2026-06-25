@@ -108,15 +108,19 @@ function TextNode({ layer, onSelect, onChange, onDragEnd, onDblClick, nodeRef, g
   const ref = useRef<Konva.Text>(null);
   useEffect(() => { nodeRef(ref.current); return () => nodeRef(null); }, [nodeRef]);
   const renderedFontSize = fitTextFontSize(layer);
-  const textScaleX = layer.autoFit === false || layer.originalFontFamily || layer.missingFont || layer.fontMissing ? (layer.scaleXText ?? 1) : 1;
-  const textScaleY = layer.autoFit === false || layer.originalFontFamily || layer.missingFont || layer.fontMissing ? (layer.scaleYText ?? 1) : 1;
+  // Bake PSD scale into rendered dimensions — keep scaleX/Y at 1 so Transformer math is simple.
+  const isPsdScaled = layer.autoFit === false || !!layer.originalFontFamily || !!layer.missingFont || !!layer.fontMissing;
+  const textScaleX = isPsdScaled ? Math.max(0.1, layer.scaleXText ?? 1) : 1;
+  const textScaleY = isPsdScaled ? Math.max(0.1, layer.scaleYText ?? 1) : 1;
+  const renderWidth  = Math.max(1, layer.width  * textScaleX);
+  const renderHeight = Math.max(1, layer.height * textScaleY);
   return (
     <Text
       ref={ref}
-      text={layer.text} x={layer.x} y={layer.y} width={layer.width} height={layer.height}
+      text={layer.text} x={layer.x} y={layer.y} width={renderWidth} height={renderHeight}
       fontSize={renderedFontSize} fontFamily={layer.fontFamily} fontStyle={layer.fontStyle}
       fill={layer.fill} align={layer.align} rotation={layer.rotation}
-      lineHeight={layer.lineHeight ?? 1.2} letterSpacing={layer.letterSpacing ?? 0} scaleX={textScaleX} scaleY={textScaleY}
+      lineHeight={layer.lineHeight ?? 1.2} letterSpacing={layer.letterSpacing ?? 0}
       wrap="none" ellipsis={layer.autoFit !== false} verticalAlign="top" direction={layer.rtl ? "rtl" : "ltr"}
       opacity={layer.opacity} visible={layer.visible}
       listening={!layer.locked}
@@ -126,21 +130,22 @@ function TextNode({ layer, onSelect, onChange, onDragEnd, onDblClick, nodeRef, g
       onDragEnd={(e) => onDragEnd(e.target.x(), e.target.y())}
       onTransformEnd={() => {
         const node = ref.current; if (!node) return;
+        // scaleX/Y is always 1 on the node, so sx/sy is the pure user-drag factor.
         const sx = node.scaleX(), sy = node.scaleY();
         node.scaleX(1); node.scaleY(1);
         const anchor = getActiveAnchor?.() ?? "";
         const isCorner =
           (anchor.startsWith("top") || anchor.startsWith("bottom")) &&
           (anchor.endsWith("left") || anchor.endsWith("right"));
-        const baseTextScaleX = textScaleX || 1;
-        const baseTextScaleY = textScaleY || 1;
-        const next: Partial<TextLayer> = { x: node.x(), y: node.y(),
-          width: Math.max(20, (layer.width * sx) / baseTextScaleX), height: Math.max(10, (layer.height * sy) / baseTextScaleY),
-          rotation: node.rotation() };
-        const isPsdLayer = layer.autoFit === false || !!layer.originalFontFamily || !!layer.missingFont || !!layer.fontMissing;
-        if (isCorner && !isPsdLayer) {
-          const factor = Math.abs(sy) || Math.abs(sx) || 1;
-          next.fontSize = Math.max(6, Math.round(renderedFontSize * factor));
+        // Store back in logical (pre-scale) space so subsequent renders are consistent.
+        const next: Partial<TextLayer> = {
+          x: node.x(), y: node.y(),
+          width:  Math.max(20, (renderWidth  * Math.abs(sx)) / textScaleX),
+          height: Math.max(10, (renderHeight * Math.abs(sy)) / textScaleY),
+          rotation: node.rotation(),
+        };
+        if (isCorner && !isPsdScaled) {
+          next.fontSize = Math.max(6, Math.round(renderedFontSize * (Math.abs(sy) || Math.abs(sx) || 1)));
         }
         onChange(next);
       }}
@@ -281,6 +286,14 @@ export function DesignerCanvas({ stageRef, onOpenMore }: { stageRef: React.Mutab
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
+      // Undo / Redo (Ctrl/Cmd+Z / Ctrl/Cmd+Y or Ctrl+Shift+Z)
+      if (e.metaKey || e.ctrlKey) {
+        if (e.key === "z" || e.key === "Z") {
+          if (e.shiftKey) { useDesigner.getState().redo(); } else { useDesigner.getState().undo(); }
+          e.preventDefault(); return;
+        }
+        if (e.key === "y" || e.key === "Y") { useDesigner.getState().redo(); e.preventDefault(); return; }
+      }
       // Tool shortcuts (work regardless of selection)
       if (!e.metaKey && !e.ctrlKey && !e.altKey) {
         if (e.key === "v" || e.key === "V") { setActiveTool("select"); return; }

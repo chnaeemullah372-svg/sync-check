@@ -762,3 +762,124 @@ export const extractFromImage = createServerFn({ method: "POST" })
 
     return { values, members, mode: usedMode, provider: providerUsed };
   });
+
+/**
+ * Admin-only: analyse the layer names of an existing template via OpenAI and
+ * return suggested fieldKey mappings + cleaned-up display names.
+ */
+export const analyzeLayerNames = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      layers: z.array(
+        z.object({
+          id: z.string(),
+          name: z.string().max(300),
+          type: z.enum(["text", "image", "box", "line"]),
+          currentFieldKey: z.string().optional(),
+        }),
+      ).min(1).max(200),
+    }),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAiAdmin(context);
+
+    const key =
+      (await loadProviderKey("openai", context.supabase)) ??
+      process.env.OPENAI_API_KEY;
+    if (!key) throw new Error("OpenAI API key is not configured. Add it in Admin → AI Settings.");
+
+    const layerList = data.layers
+      .map((l, i) => `${i + 1}. [${l.type}] "${l.name}"${l.currentFieldKey ? ` (current: ${l.currentFieldKey})` : ""}`)
+      .join("\n");
+
+    const FIELD_KEYS_HINT = [
+      "name", "father_name", "mother_name", "cnic", "dob", "doi",
+      "address", "relation", "phone", "photo", "thumb", "signature",
+      "custom_1", "custom_2", "custom_3", "",
+    ].join(", ");
+
+    const prompt = `You are a NADRA/ID-card template analysis engine.
+
+Below is a list of Konva designer layers from an ID-card or form template. Each entry has a sequential number, type (text/image/box/line), and a raw name from the PSD or designer.
+
+Your job: for each layer, decide the best semantic fieldKey from this list: ${FIELD_KEYS_HINT}
+
+Use "" (empty string) for decorative/static layers that should not be filled by user data.
+For "image" type layers, prefer: photo, thumb, signature — or "" if it looks decorative.
+For "text" type layers, match: name, father_name, cnic, dob, doi, address, phone, relation, custom_1/2/3.
+
+Also suggest a clean human-readable English "label" for each layer (max 40 chars).
+
+Common Pakistani/NADRA patterns:
+- "nam" / "ism" / "nام" / "applicant" → name
+- "walid" / "father" / "والد" / "wālid" → father_name
+- "shnaakht" / "ID no" / "cnic" / "قومی شناختی" → cnic
+- "DOB" / "date of birth" / "تاریخ پیدائش" → dob
+- "DOI" / "date of issue" / "تاریخ اجرا" → doi
+- "address" / "پتہ" → address
+- "photo" / "picture" / "تصویر" → photo
+- "thumb" / "fingerprint" / "انگوٹھا" → thumb
+- "signature" / "دستخط" → signature
+
+Layer list:
+${layerList}
+
+Respond with ONLY a JSON array — no markdown, no explanation:
+[
+  { "id": "<layer id from input>", "fieldKey": "<key or empty string>", "label": "<clean label>" },
+  ...
+]`;
+
+    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: "You are a precise template analysis engine. Return only strict JSON arrays." },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0,
+        max_tokens: 2000,
+        response_format: { type: "json_object" },
+      }),
+    });
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => "");
+      throw new Error(`OpenAI error (${resp.status}): ${errText.slice(0, 200)}`);
+    }
+    const json: any = await resp.json();
+    let raw: string = json?.choices?.[0]?.message?.content ?? "[]";
+
+    let parsed: unknown;
+    try { parsed = JSON.parse(raw); } catch { parsed = []; }
+
+    // The model may return { "layers": [...] } or just [...]
+    const arr: unknown[] = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray((parsed as any)?.layers)
+        ? (parsed as any).layers
+        : Array.isArray((parsed as any)?.result)
+          ? (parsed as any).result
+          : [];
+
+    const validKeys = new Set([
+      "", "name", "father_name", "mother_name", "cnic", "dob", "doi",
+      "address", "relation", "phone", "photo", "thumb", "signature",
+      "custom_1", "custom_2", "custom_3",
+    ]);
+    const idSet = new Set(data.layers.map((l) => l.id));
+
+    const results = arr
+      .filter((item): item is { id: string; fieldKey: string; label: string } =>
+        !!item && typeof (item as any).id === "string" && idSet.has((item as any).id),
+      )
+      .map((item) => ({
+        id: item.id,
+        fieldKey: validKeys.has(item.fieldKey) ? item.fieldKey : "",
+        label: String(item.label ?? "").slice(0, 60),
+      }));
+
+    return { results };
+  });

@@ -259,7 +259,7 @@ export const useDesigner = create<DesignerState>((set, get) => {
       }),
 
     translateSlot: (slot, dx, dy) =>
-      set((s) => ({
+      withHistory((s) => ({
         layers: s.layers.map((l) =>
           l.slotIndex === slot ? ({ ...l, x: l.x + dx, y: l.y + dy } as Layer) : l,
         ),
