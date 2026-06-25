@@ -3,3 +3,4 @@
 - [Template local file store](template-local-store.md) — when Supabase tables missing (PGRST205), all template CRUD falls back to `.local-db/templates.json`; 4 NRC templates auto-seeded on first read.
 - [PSD text scaling fix](psd-text-scaling.md) — layer.width/height from PSD are already visual (post-transform) bounds; never multiply by scaleXText/Y in Canvas.tsx or PreviewCanvas.tsx — that causes compound scaling on every resize.
 - [SSR hydration fix](ssr-hydration-fix.md) — _authenticated/route.tsx must NOT use ssr:false; use explicit typeof window check in beforeLoad instead so server always renders /auth consistently.
+- [Autoscale PORT pitfall](autoscale-port.md) — never put PORT in [services.env] of artifact.toml; that hardcodes it in production, blocking Replit autoscale's dynamic PORT assignment and killing the health check.

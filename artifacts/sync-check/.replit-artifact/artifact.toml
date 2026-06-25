@@ -17,6 +17,10 @@ localPort = 21974
 [services.development]
 run = "pnpm --filter @workspace/sync-check run dev"
 
+[services.development.env]
+PORT = "21974"
+BASE_PATH = "/"
+
 [services.production]
 
 [services.production.build]
@@ -35,5 +39,4 @@ NODE_ENV = "production"
 path = "/healthz"
 
 [services.env]
-PORT = "21974"
 BASE_PATH = "/"
